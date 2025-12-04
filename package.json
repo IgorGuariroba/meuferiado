@@ -5,6 +5,10 @@
   "main": "cidades_vizinhas.js",
   "scripts": {
     "start": "node cidades_vizinhas.js",
+    "start:api": "nest start",
+    "start:dev": "nest start --watch",
+    "start:prod": "node dist/main",
+    "build": "nest build",
     "test": "node cidades_vizinhas.js -23.5178 -46.1894 30"
   },
   "keywords": [
@@ -17,10 +21,25 @@
   "license": "MIT",
   "dependencies": {
     "@googlemaps/google-maps-services-js": "^3.3.40",
+    "@nestjs/common": "^11.1.9",
+    "@nestjs/config": "^4.0.2",
+    "@nestjs/core": "^11.1.9",
+    "@nestjs/mongoose": "^11.0.3",
+    "@nestjs/platform-express": "^11.1.9",
+    "class-transformer": "^0.5.1",
+    "class-validator": "^0.14.3",
     "dotenv": "^16.3.1",
-    "mongoose": "^9.0.0"
+    "mongoose": "^9.0.0",
+    "reflect-metadata": "^0.2.2",
+    "rxjs": "^7.8.2"
   },
   "engines": {
     "node": ">=14.0.0"
+  },
+  "devDependencies": {
+    "@nestjs/cli": "^11.0.14",
+    "@types/node": "^24.10.1",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
   }
 }
