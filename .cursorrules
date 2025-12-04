@@ -1,0 +1,30 @@
+# Regras do Cursor para este projeto
+
+## Commits
+
+- **Sempre use Conventional Commits em português**
+- Formato: `<tipo>(<escopo>): <descrição>`
+- Tipos permitidos:
+  - `feat`: Nova funcionalidade
+  - `fix`: Correção de bug
+  - `docs`: Documentação
+  - `style`: Formatação, ponto e vírgula, etc (não altera código)
+  - `refactor`: Refatoração de código
+  - `perf`: Melhoria de performance
+  - `test`: Adição ou correção de testes
+  - `chore`: Tarefas de build, configuração, etc
+  - `ci`: Mudanças em CI/CD
+  - `build`: Mudanças no sistema de build
+  - `revert`: Reverte um commit anterior
+
+- Exemplos:
+  - `feat(api): adicionar paginação nas rotas de cidades`
+  - `fix(mongodb): corrigir conexão com banco de dados`
+  - `docs(readme): atualizar instruções de instalação`
+  - `refactor(services): otimizar busca de cidades vizinhas`
+  - `chore(deps): atualizar dependências do projeto`
+
+- A descrição deve ser clara, concisa e em português
+- Use o modo imperativo ("adicionar" não "adiciona" ou "adicionando")
+- Se necessário, adicione corpo e rodapé seguindo o padrão Conventional Commits
+
