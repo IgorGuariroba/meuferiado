@@ -52,4 +52,18 @@ export declare class CidadesService {
         cidades: any[];
         doMongoDB: boolean;
     }>;
+    listarTodasCidades(limit?: number, skip?: number): Promise<{
+        cidades: {
+            nome: string;
+            estado: string;
+            pais: string;
+            lat: number;
+            lon: number;
+            criadoEm: Date;
+            atualizadoEm: Date;
+        }[];
+        total: number;
+        limit: number;
+        skip: number;
+    }>;
 }

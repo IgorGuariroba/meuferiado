@@ -17,6 +17,7 @@ const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const cidades_service_1 = require("./services/cidades.service");
 const buscar_cidades_dto_1 = require("./dto/buscar-cidades.dto");
+const listar_cidades_dto_1 = require("./dto/listar-cidades.dto");
 let CidadesController = class CidadesController {
     constructor(cidadesService) {
         this.cidadesService = cidadesService;
@@ -50,6 +51,21 @@ let CidadesController = class CidadesController {
             }, common_1.HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
+    async listarCidades(query) {
+        try {
+            const resultado = await this.cidadesService.listarTodasCidades(query.limit, query.skip);
+            return {
+                success: true,
+                data: resultado,
+            };
+        }
+        catch (error) {
+            throw new common_1.HttpException({
+                success: false,
+                message: error.message || 'Erro ao listar cidades',
+            }, common_1.HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
 };
 exports.CidadesController = CidadesController;
 __decorate([
@@ -66,6 +82,20 @@ __decorate([
     __metadata("design:paramtypes", [buscar_cidades_dto_1.BuscarCidadesDto]),
     __metadata("design:returntype", Promise)
 ], CidadesController.prototype, "obterCidades", null);
+__decorate([
+    (0, common_1.Get)('listar'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Lista todas as cidades salvas no MongoDB',
+        description: 'Retorna todas as cidades armazenadas no banco de dados com opção de paginação'
+    }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Lista de cidades retornada com sucesso' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Parâmetros inválidos' }),
+    (0, swagger_1.ApiResponse)({ status: 500, description: 'Erro interno do servidor' }),
+    __param(0, (0, common_1.Query)(new common_1.ValidationPipe({ whitelist: true, transform: true }))),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [listar_cidades_dto_1.ListarCidadesDto]),
+    __metadata("design:returntype", Promise)
+], CidadesController.prototype, "listarCidades", null);
 exports.CidadesController = CidadesController = __decorate([
     (0, swagger_1.ApiTags)('cidades'),
     (0, common_1.Controller)('api/cidades'),

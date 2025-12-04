@@ -161,6 +161,37 @@ let CidadesService = class CidadesService {
             .sort((a, b) => a.distancia_km - b.distancia_km);
         return { cidades: resultado, doMongoDB: false };
     }
+    async listarTodasCidades(limit, skip) {
+        try {
+            const query = this.cidadeModel.find().sort({ criadoEm: -1 });
+            if (skip) {
+                query.skip(skip);
+            }
+            if (limit) {
+                query.limit(limit);
+            }
+            const cidades = await query.exec();
+            const total = await this.cidadeModel.countDocuments();
+            return {
+                cidades: cidades.map(cidade => ({
+                    nome: cidade.nome,
+                    estado: cidade.estado || '',
+                    pais: cidade.pais || '',
+                    lat: cidade.localizacao.coordinates[1],
+                    lon: cidade.localizacao.coordinates[0],
+                    criadoEm: cidade.criadoEm,
+                    atualizadoEm: cidade.atualizadoEm,
+                })),
+                total,
+                limit: limit || total,
+                skip: skip || 0,
+            };
+        }
+        catch (error) {
+            console.error('Erro ao listar cidades:', error.message);
+            throw new Error(`Erro ao listar cidades: ${error.message}`);
+        }
+    }
 };
 exports.CidadesService = CidadesService;
 exports.CidadesService = CidadesService = __decorate([
