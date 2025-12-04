@@ -1,0 +1,25 @@
+{
+  "name": "cidades-vizinhas",
+  "version": "1.0.0",
+  "description": "Script para encontrar cidade atual e cidades vizinhas usando Google Maps API",
+  "main": "cidades_vizinhas.js",
+  "scripts": {
+    "start": "node cidades_vizinhas.js",
+    "test": "node cidades_vizinhas.js -23.5178 -46.1894 30"
+  },
+  "keywords": [
+    "google-maps",
+    "places-api",
+    "geocoding",
+    "cidades"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "@googlemaps/google-maps-services-js": "^3.3.40",
+    "dotenv": "^16.3.1"
+  },
+  "engines": {
+    "node": ">=14.0.0"
+  }
+}
