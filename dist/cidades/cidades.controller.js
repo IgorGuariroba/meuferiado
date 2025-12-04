@@ -25,9 +25,27 @@ let CidadesController = class CidadesController {
     async obterCidades(query) {
         try {
             const { lat, lon, raioKm } = query;
+            const limitNum = query.limit !== undefined && query.limit !== null
+                ? (typeof query.limit === 'string' ? parseInt(query.limit, 10) : query.limit)
+                : undefined;
+            const skipNum = query.skip !== undefined && query.skip !== null
+                ? (typeof query.skip === 'string' ? parseInt(query.skip, 10) : query.skip)
+                : undefined;
+            if (limitNum !== undefined && (isNaN(limitNum) || limitNum < 1 || limitNum > 100)) {
+                throw new common_1.HttpException({
+                    success: false,
+                    message: 'Limit deve ser um número entre 1 e 100',
+                }, common_1.HttpStatus.BAD_REQUEST);
+            }
+            if (skipNum !== undefined && (isNaN(skipNum) || skipNum < 0)) {
+                throw new common_1.HttpException({
+                    success: false,
+                    message: 'Skip deve ser um número maior ou igual a 0',
+                }, common_1.HttpStatus.BAD_REQUEST);
+            }
             const [cidadeAtual, resultadoVizinhas] = await Promise.all([
                 this.cidadesService.obterCidadeAtual(lat, lon),
-                this.cidadesService.obterCidadesVizinhas(lat, lon, raioKm),
+                this.cidadesService.obterCidadesVizinhas(lat, lon, raioKm, limitNum, skipNum),
             ]);
             return {
                 success: true,
@@ -38,7 +56,9 @@ let CidadesController = class CidadesController {
                     },
                     cidadesVizinhas: {
                         cidades: resultadoVizinhas.cidades,
-                        total: resultadoVizinhas.cidades.length,
+                        total: resultadoVizinhas.total,
+                        limit: resultadoVizinhas.limit,
+                        skip: resultadoVizinhas.skip,
                         fonte: resultadoVizinhas.doMongoDB ? 'MongoDB' : 'Google Maps API',
                     },
                 },

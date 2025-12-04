@@ -180,12 +180,24 @@ export class CidadesService {
   /**
    * Obtém cidades vizinhas (busca MongoDB primeiro, depois API)
    */
-  async obterCidadesVizinhas(lat: number, lon: number, raioKm: number) {
+  async obterCidadesVizinhas(lat: number, lon: number, raioKm: number, limit?: number, skip?: number) {
     // Tentar buscar no MongoDB primeiro
     // Se encontrar menos de 3 cidades, ainda consulta API para garantir completude
     const cidadesMongo = await this.buscarCidadesProximas(lat, lon, raioKm);
     if (cidadesMongo.length >= 3) {
-      return { cidades: cidadesMongo, doMongoDB: true };
+      // Aplicar paginação
+      const total = cidadesMongo.length;
+      const skipValue = skip || 0;
+      const limitValue = limit || 20;
+      const cidadesPaginadas = cidadesMongo.slice(skipValue, skipValue + limitValue);
+
+      return {
+        cidades: cidadesPaginadas,
+        total,
+        limit: limitValue,
+        skip: skipValue,
+        doMongoDB: true
+      };
     }
 
     // Se não encontrou no MongoDB ou encontrou poucas, consultar API
@@ -209,7 +221,19 @@ export class CidadesService {
     const resultado = Array.from(cidadesUnicas.values())
       .sort((a, b) => a.distancia_km - b.distancia_km);
 
-    return { cidades: resultado, doMongoDB: false };
+    // Aplicar paginação
+    const total = resultado.length;
+    const skipValue = skip || 0;
+    const limitValue = limit || 20;
+    const cidadesPaginadas = resultado.slice(skipValue, skipValue + limitValue);
+
+    return {
+      cidades: cidadesPaginadas,
+      total,
+      limit: limitValue,
+      skip: skipValue,
+      doMongoDB: false
+    };
   }
 
   /**

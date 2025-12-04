@@ -48,8 +48,11 @@ export declare class CidadesService {
             lon: number;
         };
     }>;
-    obterCidadesVizinhas(lat: number, lon: number, raioKm: number): Promise<{
+    obterCidadesVizinhas(lat: number, lon: number, raioKm: number, limit?: number, skip?: number): Promise<{
         cidades: any[];
+        total: number;
+        limit: number;
+        skip: number;
         doMongoDB: boolean;
     }>;
     listarTodasCidades(limit?: number, skip?: number): Promise<{

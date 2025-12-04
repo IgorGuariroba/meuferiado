@@ -23,9 +23,9 @@ __decorate([
         minimum: -90,
         maximum: 90,
     }),
+    (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsNumber)(),
     (0, class_validator_1.IsNotEmpty)(),
-    (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.Min)(-90),
     (0, class_validator_1.Max)(90),
     __metadata("design:type", Number)
@@ -37,9 +37,9 @@ __decorate([
         minimum: -180,
         maximum: 180,
     }),
+    (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsNumber)(),
     (0, class_validator_1.IsNotEmpty)(),
-    (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.Min)(-180),
     (0, class_validator_1.Max)(180),
     __metadata("design:type", Number)
@@ -51,11 +51,39 @@ __decorate([
         minimum: 1,
         maximum: 1000,
     }),
+    (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsNumber)(),
     (0, class_validator_1.IsNotEmpty)(),
-    (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.Min)(1),
     (0, class_validator_1.Max)(1000),
     __metadata("design:type", Number)
 ], BuscarCidadesDto.prototype, "raioKm", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Número máximo de cidades vizinhas para retornar',
+        example: 20,
+        minimum: 1,
+        maximum: 100,
+        default: 20,
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(1),
+    (0, class_validator_1.Max)(100),
+    __metadata("design:type", Number)
+], BuscarCidadesDto.prototype, "limit", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Número de cidades vizinhas para pular (paginação)',
+        example: 0,
+        minimum: 0,
+        default: 0,
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], BuscarCidadesDto.prototype, "skip", void 0);
 //# sourceMappingURL=buscar-cidades.dto.js.map

@@ -21,10 +21,39 @@ export class CidadesController {
     try {
       const { lat, lon, raioKm } = query;
 
+      // Transformar limit e skip manualmente se fornecidos (podem vir como string ou number)
+      const limitNum = query.limit !== undefined && query.limit !== null
+        ? (typeof query.limit === 'string' ? parseInt(query.limit, 10) : query.limit)
+        : undefined;
+      const skipNum = query.skip !== undefined && query.skip !== null
+        ? (typeof query.skip === 'string' ? parseInt(query.skip, 10) : query.skip)
+        : undefined;
+
+      // Validar limit e skip se fornecidos
+      if (limitNum !== undefined && (isNaN(limitNum) || limitNum < 1 || limitNum > 100)) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'Limit deve ser um número entre 1 e 100',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      if (skipNum !== undefined && (isNaN(skipNum) || skipNum < 0)) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'Skip deve ser um número maior ou igual a 0',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
       // Buscar cidade atual e cidades vizinhas em paralelo
       const [cidadeAtual, resultadoVizinhas] = await Promise.all([
         this.cidadesService.obterCidadeAtual(lat, lon),
-        this.cidadesService.obterCidadesVizinhas(lat, lon, raioKm),
+        this.cidadesService.obterCidadesVizinhas(lat, lon, raioKm, limitNum, skipNum),
       ]);
 
       return {
@@ -36,7 +65,9 @@ export class CidadesController {
           },
           cidadesVizinhas: {
             cidades: resultadoVizinhas.cidades,
-            total: resultadoVizinhas.cidades.length,
+            total: resultadoVizinhas.total,
+            limit: resultadoVizinhas.limit,
+            skip: resultadoVizinhas.skip,
             fonte: resultadoVizinhas.doMongoDB ? 'MongoDB' : 'Google Maps API',
           },
         },

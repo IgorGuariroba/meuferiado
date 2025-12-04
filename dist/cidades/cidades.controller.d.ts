@@ -29,6 +29,8 @@ export declare class CidadesController {
             cidadesVizinhas: {
                 cidades: any[];
                 total: number;
+                limit: number;
+                skip: number;
                 fonte: string;
             };
         };

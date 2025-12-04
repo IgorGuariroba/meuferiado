@@ -140,10 +140,20 @@ let CidadesService = class CidadesService {
         }
         return { ...cidadeApi, doMongoDB: false };
     }
-    async obterCidadesVizinhas(lat, lon, raioKm) {
+    async obterCidadesVizinhas(lat, lon, raioKm, limit, skip) {
         const cidadesMongo = await this.buscarCidadesProximas(lat, lon, raioKm);
         if (cidadesMongo.length >= 3) {
-            return { cidades: cidadesMongo, doMongoDB: true };
+            const total = cidadesMongo.length;
+            const skipValue = skip || 0;
+            const limitValue = limit || 20;
+            const cidadesPaginadas = cidadesMongo.slice(skipValue, skipValue + limitValue);
+            return {
+                cidades: cidadesPaginadas,
+                total,
+                limit: limitValue,
+                skip: skipValue,
+                doMongoDB: true
+            };
         }
         const cidadesApi = await this.googleMapsService.obterCidadesVizinhas(lat, lon, raioKm);
         if (cidadesApi.length > 0) {
@@ -159,7 +169,17 @@ let CidadesService = class CidadesService {
         }
         const resultado = Array.from(cidadesUnicas.values())
             .sort((a, b) => a.distancia_km - b.distancia_km);
-        return { cidades: resultado, doMongoDB: false };
+        const total = resultado.length;
+        const skipValue = skip || 0;
+        const limitValue = limit || 20;
+        const cidadesPaginadas = resultado.slice(skipValue, skipValue + limitValue);
+        return {
+            cidades: cidadesPaginadas,
+            total,
+            limit: limitValue,
+            skip: skipValue,
+            doMongoDB: false
+        };
     }
     async listarTodasCidades(limit, skip) {
         try {
