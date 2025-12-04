@@ -12,10 +12,17 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BuscarCidadeAtualDto = void 0;
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
+const swagger_1 = require("@nestjs/swagger");
 class BuscarCidadeAtualDto {
 }
 exports.BuscarCidadeAtualDto = BuscarCidadeAtualDto;
 __decorate([
+    (0, swagger_1.ApiProperty)({
+        description: 'Latitude da coordenada',
+        example: -23.5178,
+        minimum: -90,
+        maximum: 90,
+    }),
     (0, class_validator_1.IsNumber)(),
     (0, class_validator_1.IsNotEmpty)(),
     (0, class_transformer_1.Type)(() => Number),
@@ -24,6 +31,12 @@ __decorate([
     __metadata("design:type", Number)
 ], BuscarCidadeAtualDto.prototype, "lat", void 0);
 __decorate([
+    (0, swagger_1.ApiProperty)({
+        description: 'Longitude da coordenada',
+        example: -46.1894,
+        minimum: -180,
+        maximum: 180,
+    }),
     (0, class_validator_1.IsNumber)(),
     (0, class_validator_1.IsNotEmpty)(),
     (0, class_transformer_1.Type)(() => Number),

@@ -12,10 +12,17 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BuscarCidadesDto = void 0;
 const class_validator_1 = require("class-validator");
 const class_transformer_1 = require("class-transformer");
+const swagger_1 = require("@nestjs/swagger");
 class BuscarCidadesDto {
 }
 exports.BuscarCidadesDto = BuscarCidadesDto;
 __decorate([
+    (0, swagger_1.ApiProperty)({
+        description: 'Latitude da coordenada central',
+        example: -23.5178,
+        minimum: -90,
+        maximum: 90,
+    }),
     (0, class_validator_1.IsNumber)(),
     (0, class_validator_1.IsNotEmpty)(),
     (0, class_transformer_1.Type)(() => Number),
@@ -24,6 +31,12 @@ __decorate([
     __metadata("design:type", Number)
 ], BuscarCidadesDto.prototype, "lat", void 0);
 __decorate([
+    (0, swagger_1.ApiProperty)({
+        description: 'Longitude da coordenada central',
+        example: -46.1894,
+        minimum: -180,
+        maximum: 180,
+    }),
     (0, class_validator_1.IsNumber)(),
     (0, class_validator_1.IsNotEmpty)(),
     (0, class_transformer_1.Type)(() => Number),
@@ -32,6 +45,12 @@ __decorate([
     __metadata("design:type", Number)
 ], BuscarCidadesDto.prototype, "lon", void 0);
 __decorate([
+    (0, swagger_1.ApiProperty)({
+        description: 'Raio em quilômetros para buscar cidades vizinhas',
+        example: 30,
+        minimum: 1,
+        maximum: 1000,
+    }),
     (0, class_validator_1.IsNumber)(),
     (0, class_validator_1.IsNotEmpty)(),
     (0, class_transformer_1.Type)(() => Number),

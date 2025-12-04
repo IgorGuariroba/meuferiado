@@ -14,65 +14,60 @@ var __param = (this && this.__param) || function (paramIndex, decorator) {
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.CidadesController = void 0;
 const common_1 = require("@nestjs/common");
+const swagger_1 = require("@nestjs/swagger");
 const cidades_service_1 = require("./services/cidades.service");
 const buscar_cidades_dto_1 = require("./dto/buscar-cidades.dto");
-const buscar_cidade_atual_dto_1 = require("./dto/buscar-cidade-atual.dto");
 let CidadesController = class CidadesController {
     constructor(cidadesService) {
         this.cidadesService = cidadesService;
     }
-    async obterCidadeAtual(query) {
-        try {
-            const { lat, lon } = query;
-            const cidade = await this.cidadesService.obterCidadeAtual(lat, lon);
-            return {
-                success: true,
-                data: cidade,
-                fonte: cidade.doMongoDB ? 'MongoDB' : 'Google Maps API',
-            };
-        }
-        catch (error) {
-            throw new common_1.HttpException({
-                success: false,
-                message: error.message || 'Erro ao buscar cidade atual',
-            }, common_1.HttpStatus.INTERNAL_SERVER_ERROR);
-        }
-    }
-    async obterCidadesVizinhas(query) {
+    async obterCidades(query) {
         try {
             const { lat, lon, raioKm } = query;
-            const resultado = await this.cidadesService.obterCidadesVizinhas(lat, lon, raioKm);
+            const [cidadeAtual, resultadoVizinhas] = await Promise.all([
+                this.cidadesService.obterCidadeAtual(lat, lon),
+                this.cidadesService.obterCidadesVizinhas(lat, lon, raioKm),
+            ]);
             return {
                 success: true,
-                data: resultado.cidades,
-                total: resultado.cidades.length,
-                fonte: resultado.doMongoDB ? 'MongoDB' : 'Google Maps API',
+                data: {
+                    cidadeAtual: {
+                        ...cidadeAtual,
+                        fonte: cidadeAtual.doMongoDB ? 'MongoDB' : 'Google Maps API',
+                    },
+                    cidadesVizinhas: {
+                        cidades: resultadoVizinhas.cidades,
+                        total: resultadoVizinhas.cidades.length,
+                        fonte: resultadoVizinhas.doMongoDB ? 'MongoDB' : 'Google Maps API',
+                    },
+                },
             };
         }
         catch (error) {
             throw new common_1.HttpException({
                 success: false,
-                message: error.message || 'Erro ao buscar cidades vizinhas',
+                message: error.message || 'Erro ao buscar cidades',
             }, common_1.HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 };
 exports.CidadesController = CidadesController;
 __decorate([
-    (0, common_1.Get)('atual'),
-    __param(0, (0, common_1.Query)()),
-    __metadata("design:type", Function),
-    __metadata("design:paramtypes", [buscar_cidade_atual_dto_1.BuscarCidadeAtualDto]),
-    __metadata("design:returntype", Promise)
-], CidadesController.prototype, "obterCidadeAtual", null);
-__decorate([
-    (0, common_1.Get)('vizinhas'),
-    __param(0, (0, common_1.Query)()),
+    (0, common_1.Get)(),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Busca cidade atual e cidades vizinhas',
+        description: 'Retorna a cidade atual para as coordenadas fornecidas e todas as cidades vizinhas dentro do raio especificado'
+    }),
+    (0, swagger_1.ApiResponse)({ status: 200, description: 'Dados encontrados com sucesso' }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Parâmetros inválidos' }),
+    (0, swagger_1.ApiResponse)({ status: 500, description: 'Erro interno do servidor' }),
+    __param(0, (0, common_1.Query)(new common_1.ValidationPipe({ whitelist: true, transform: true }))),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [buscar_cidades_dto_1.BuscarCidadesDto]),
     __metadata("design:returntype", Promise)
-], CidadesController.prototype, "obterCidadesVizinhas", null);
+], CidadesController.prototype, "obterCidades", null);
 exports.CidadesController = CidadesController = __decorate([
+    (0, swagger_1.ApiTags)('cidades'),
     (0, common_1.Controller)('api/cidades'),
     __metadata("design:paramtypes", [cidades_service_1.CidadesService])
 ], CidadesController);
