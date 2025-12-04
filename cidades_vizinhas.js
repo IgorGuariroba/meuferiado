@@ -8,6 +8,13 @@
 const { Client } = require('@googlemaps/google-maps-services-js');
 const dotenv = require('dotenv');
 const path = require('path');
+const { conectarMongoDB, desconectarMongoDB, estaConectado } = require('./db/connection');
+const {
+    buscarCidadePorCoordenadas,
+    buscarCidadesProximas,
+    salvarCidade,
+    salvarCidades
+} = require('./db/funcoes');
 
 dotenv.config({ path: path.join(__dirname, '.env') });
 
@@ -29,8 +36,20 @@ function calcularDistancia(lat1, lon1, lat2, lon2) {
 
 /**
  * Obtém informações da cidade atual via Geocoding
+ * Primeiro busca no MongoDB, depois na API se necessário
  */
 async function obterCidadeAtual(lat, lon, apiKey) {
+    // Tentar buscar no MongoDB primeiro
+    if (estaConectado()) {
+        const cidadeMongo = await buscarCidadePorCoordenadas(lat, lon, 1);
+        if (cidadeMongo) {
+            console.log('   ✓ Encontrada no MongoDB');
+            return cidadeMongo;
+        }
+    }
+
+    // Se não encontrou no MongoDB, consultar API
+    console.log('   → Consultando API do Google Maps...');
     try {
         const client = new Client({});
         const response = await client.reverseGeocode({
@@ -60,12 +79,23 @@ async function obterCidadeAtual(lat, lon, apiKey) {
             }
         }
 
-        return {
+        const resultado = {
             cidade: cidade || endereco.formatted_address || 'Não encontrada',
             estado,
             pais,
             endereco_completo: endereco.formatted_address
         };
+
+        // Salvar no MongoDB se encontrou cidade válida
+        if (cidade && estaConectado()) {
+            const geometry = endereco.geometry || {};
+            const location = geometry.location || {};
+            const latCidade = location.lat || lat;
+            const lonCidade = location.lng || lon;
+            await salvarCidade(cidade, estado, pais, latCidade, lonCidade);
+        }
+
+        return resultado;
     } catch (error) {
         console.error(`❌ Erro na geocodificação: ${error.message}`);
         return { cidade: "Erro", estado: "", pais: "" };
@@ -75,8 +105,23 @@ async function obterCidadeAtual(lat, lon, apiKey) {
 /**
  * Busca cidades vizinhas usando Geocoding API
  * Método ideal para encontrar cidades (não comércios)
+ * Primeiro busca no MongoDB, depois na API se necessário
  */
 async function obterCidadesVizinhas(lat, lon, raioKm, apiKey) {
+    // Tentar buscar no MongoDB primeiro
+    // Se encontrar menos de 3 cidades, ainda consulta API para garantir completude
+    if (estaConectado()) {
+        const cidadesMongo = await buscarCidadesProximas(lat, lon, raioKm);
+        if (cidadesMongo.length >= 3) {
+            console.log(`   ✓ Encontradas ${cidadesMongo.length} cidade(s) no MongoDB`);
+            return { cidades: cidadesMongo, apiAtiva: true, doMongoDB: true };
+        } else if (cidadesMongo.length > 0) {
+            console.log(`   ⚠️  Encontradas apenas ${cidadesMongo.length} cidade(s) no MongoDB, consultando API...`);
+        }
+    }
+
+    // Se não encontrou no MongoDB, consultar API
+    console.log('   → Consultando API do Google Maps...');
     const cidadesMap = new Map();
     const client = new Client({});
     const pontosVerificados = new Set();
@@ -172,7 +217,14 @@ async function obterCidadesVizinhas(lat, lon, raioKm, apiKey) {
         const cidades = Array.from(cidadesMap.values())
             .sort((a, b) => a.distancia_km - b.distancia_km);
 
-        return { cidades: cidades.slice(0, 20), apiAtiva: true }; // Limitar a 20 resultados
+        const resultado = cidades.slice(0, 20); // Limitar a 20 resultados
+
+        // Salvar novas cidades no MongoDB
+        if (resultado.length > 0 && estaConectado()) {
+            await salvarCidades(resultado);
+        }
+
+        return { cidades: resultado, apiAtiva: true, doMongoDB: false };
 
     } catch (error) {
         console.error(`❌ Erro ao buscar cidades vizinhas: ${error.message}`);
@@ -215,6 +267,15 @@ async function main() {
     console.log(`📍 Coordenadas: ${lat}, ${lon}`);
     console.log(`📏 Raio: ${raioKm} km\n`);
 
+    // Conectar ao MongoDB (opcional, não bloqueia se não estiver disponível)
+    let mongoConectado = false;
+    try {
+        await conectarMongoDB();
+        mongoConectado = true;
+    } catch (error) {
+        console.log('⚠️  MongoDB não disponível, usando apenas API do Google Maps\n');
+    }
+
     // Obter cidade atual
     console.log('🔍 Buscando cidade atual...');
     const cidadeAtual = await obterCidadeAtual(lat, lon, googleApiKey);
@@ -243,6 +304,7 @@ async function main() {
         console.error('1. A chave API está correta no arquivo .env');
         console.error('2. Geocoding API está ativada no Google Cloud Console');
         console.error('3. A chave tem permissão para usar Geocoding API\n');
+        if (mongoConectado) await desconectarMongoDB();
         process.exit(1);
     }
 
@@ -250,10 +312,15 @@ async function main() {
 
     if (cidades.length === 0) {
         console.log('⚠️  Nenhuma cidade encontrada no raio especificado.\n');
+        if (mongoConectado) await desconectarMongoDB();
         process.exit(0);
     }
 
-    console.log(`✅ ${cidades.length} cidade(s) encontrada(s):\n`);
+    if (resultado.doMongoDB) {
+        console.log(`✅ ${cidades.length} cidade(s) encontrada(s) no MongoDB:\n`);
+    } else {
+        console.log(`✅ ${cidades.length} cidade(s) encontrada(s):\n`);
+    }
 
     cidades.forEach((cidade, index) => {
         console.log(`${index + 1}. ${cidade.nome}`);
@@ -264,6 +331,11 @@ async function main() {
     });
 
     console.log('═'.repeat(60) + '\n');
+
+    // Desconectar do MongoDB
+    if (mongoConectado) {
+        await desconectarMongoDB();
+    }
 }
 
 // Executar
