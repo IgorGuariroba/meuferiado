@@ -4,6 +4,16 @@ export declare class GoogleMapsService {
     private client;
     private apiKey;
     constructor(configService: ConfigService);
+    buscarPorEndereco(endereco: string): Promise<{
+        cidade: string;
+        estado: string;
+        pais: string;
+        endereco_completo: string;
+        coordenadas: {
+            lat: any;
+            lon: any;
+        };
+    }>;
     obterCidadeAtual(lat: number, lon: number): Promise<{
         cidade: string;
         estado: string;

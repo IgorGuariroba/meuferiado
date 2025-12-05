@@ -129,6 +129,15 @@ let CidadesService = class CidadesService {
         }
         return resultados;
     }
+    async buscarCoordenadasPorEndereco(endereco) {
+        try {
+            const resultado = await this.googleMapsService.buscarPorEndereco(endereco);
+            return resultado;
+        }
+        catch (error) {
+            throw new Error(`Erro ao buscar endereço: ${error.message}`);
+        }
+    }
     async obterCidadeAtual(lat, lon) {
         const cidadeMongo = await this.buscarCidadePorCoordenadas(lat, lon, 1);
         if (cidadeMongo) {

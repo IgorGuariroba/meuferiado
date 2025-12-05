@@ -1,33 +1,41 @@
-import { IsNumber, IsNotEmpty, Min, Max, IsOptional } from 'class-validator';
+import { IsNumber, Min, Max, IsOptional, IsString, IsNotEmpty } from 'class-validator';
 import { Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class BuscarCidadesDto {
-  @ApiProperty({
-    description: 'Latitude da coordenada central',
+  @ApiPropertyOptional({
+    description: 'Latitude da coordenada central (obrigatório se endereco não for fornecido)',
     example: -23.5178,
     minimum: -90,
     maximum: 90,
   })
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
-  @IsNotEmpty()
   @Min(-90)
   @Max(90)
-  lat: number;
+  lat?: number;
 
-  @ApiProperty({
-    description: 'Longitude da coordenada central',
+  @ApiPropertyOptional({
+    description: 'Longitude da coordenada central (obrigatório se endereco não for fornecido)',
     example: -46.1894,
     minimum: -180,
     maximum: 180,
   })
+  @IsOptional()
   @Type(() => Number)
   @IsNumber()
-  @IsNotEmpty()
   @Min(-180)
   @Max(180)
-  lon: number;
+  lon?: number;
+
+  @ApiPropertyOptional({
+    description: 'Nome da cidade ou endereço (obrigatório se lat/lon não forem fornecidos)',
+    example: 'São Paulo, SP',
+  })
+  @IsOptional()
+  @IsString()
+  endereco?: string;
 
   @ApiProperty({
     description: 'Raio em quilômetros para buscar cidades vizinhas',

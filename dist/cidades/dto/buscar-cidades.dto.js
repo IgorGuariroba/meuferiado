@@ -17,33 +17,42 @@ class BuscarCidadesDto {
 }
 exports.BuscarCidadesDto = BuscarCidadesDto;
 __decorate([
-    (0, swagger_1.ApiProperty)({
-        description: 'Latitude da coordenada central',
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Latitude da coordenada central (obrigatório se endereco não for fornecido)',
         example: -23.5178,
         minimum: -90,
         maximum: 90,
     }),
+    (0, class_validator_1.IsOptional)(),
     (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsNumber)(),
-    (0, class_validator_1.IsNotEmpty)(),
     (0, class_validator_1.Min)(-90),
     (0, class_validator_1.Max)(90),
     __metadata("design:type", Number)
 ], BuscarCidadesDto.prototype, "lat", void 0);
 __decorate([
-    (0, swagger_1.ApiProperty)({
-        description: 'Longitude da coordenada central',
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Longitude da coordenada central (obrigatório se endereco não for fornecido)',
         example: -46.1894,
         minimum: -180,
         maximum: 180,
     }),
+    (0, class_validator_1.IsOptional)(),
     (0, class_transformer_1.Type)(() => Number),
     (0, class_validator_1.IsNumber)(),
-    (0, class_validator_1.IsNotEmpty)(),
     (0, class_validator_1.Min)(-180),
     (0, class_validator_1.Max)(180),
     __metadata("design:type", Number)
 ], BuscarCidadesDto.prototype, "lon", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Nome da cidade ou endereço (obrigatório se lat/lon não forem fornecidos)',
+        example: 'São Paulo, SP',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], BuscarCidadesDto.prototype, "endereco", void 0);
 __decorate([
     (0, swagger_1.ApiProperty)({
         description: 'Raio em quilômetros para buscar cidades vizinhas',

@@ -31,6 +31,16 @@ export declare class CidadesService {
         lat: number;
         lon: number;
     }>): Promise<any[]>;
+    buscarCoordenadasPorEndereco(endereco: string): Promise<{
+        cidade: string;
+        estado: string;
+        pais: string;
+        endereco_completo: string;
+        coordenadas: {
+            lat: any;
+            lon: any;
+        };
+    }>;
     obterCidadeAtual(lat: number, lon: number): Promise<{
         doMongoDB: boolean;
         cidade: string;

@@ -20,6 +20,52 @@ let GoogleMapsService = class GoogleMapsService {
         this.client = new google_maps_services_js_1.Client({});
         this.apiKey = this.configService.get('GOOGLE_MAPS_API_KEY') || '';
     }
+    async buscarPorEndereco(endereco) {
+        try {
+            const response = await this.client.geocode({
+                params: {
+                    address: endereco,
+                    key: this.apiKey,
+                    language: 'pt-BR',
+                },
+            });
+            if (!response.data.results?.length) {
+                throw new Error('Endereço não encontrado');
+            }
+            const resultado = response.data.results[0];
+            const geometry = (resultado.geometry || {});
+            const location = geometry.location || {};
+            if (!location.lat || !location.lng) {
+                throw new Error('Coordenadas não encontradas para o endereço');
+            }
+            let cidade = '', estado = '', pais = '';
+            for (const comp of resultado.address_components || []) {
+                const tipos = (comp.types || []);
+                if (tipos.includes('locality') || tipos.includes('administrative_area_level_2')) {
+                    cidade = comp.long_name;
+                }
+                else if (tipos.includes('administrative_area_level_1')) {
+                    estado = comp.short_name;
+                }
+                else if (tipos.includes('country')) {
+                    pais = comp.short_name;
+                }
+            }
+            return {
+                cidade: cidade || resultado.formatted_address || 'Não encontrada',
+                estado,
+                pais,
+                endereco_completo: resultado.formatted_address,
+                coordenadas: {
+                    lat: location.lat,
+                    lon: location.lng,
+                },
+            };
+        }
+        catch (error) {
+            throw new Error(`Erro ao buscar endereço: ${error.message}`);
+        }
+    }
     async obterCidadeAtual(lat, lon) {
         try {
             const response = await this.client.reverseGeocode({

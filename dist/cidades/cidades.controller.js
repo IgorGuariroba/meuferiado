@@ -16,7 +16,6 @@ exports.CidadesController = void 0;
 const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const cidades_service_1 = require("./services/cidades.service");
-const buscar_cidades_dto_1 = require("./dto/buscar-cidades.dto");
 const listar_cidades_dto_1 = require("./dto/listar-cidades.dto");
 let CidadesController = class CidadesController {
     constructor(cidadesService) {
@@ -24,12 +23,61 @@ let CidadesController = class CidadesController {
     }
     async obterCidades(query) {
         try {
-            const { lat, lon, raioKm } = query;
+            const raioKm = query.raioKm ? Number(query.raioKm) : null;
+            if (!raioKm || isNaN(raioKm) || raioKm < 1 || raioKm > 1000) {
+                throw new common_1.HttpException({
+                    success: false,
+                    message: 'raioKm é obrigatório e deve ser um número entre 1 e 1000',
+                }, common_1.HttpStatus.BAD_REQUEST);
+            }
+            const endereco = query.endereco ? String(query.endereco).trim() : null;
+            const lat = query.lat !== undefined ? Number(query.lat) : undefined;
+            const lon = query.lon !== undefined ? Number(query.lon) : undefined;
+            if (!endereco && (lat === undefined || lon === undefined)) {
+                throw new common_1.HttpException({
+                    success: false,
+                    message: 'É necessário fornecer coordenadas (lat e lon) OU um endereco',
+                }, common_1.HttpStatus.BAD_REQUEST);
+            }
+            if (!endereco) {
+                if (isNaN(lat) || lat < -90 || lat > 90) {
+                    throw new common_1.HttpException({
+                        success: false,
+                        message: 'lat deve ser um número entre -90 e 90',
+                    }, common_1.HttpStatus.BAD_REQUEST);
+                }
+                if (isNaN(lon) || lon < -180 || lon > 180) {
+                    throw new common_1.HttpException({
+                        success: false,
+                        message: 'lon deve ser um número entre -180 e 180',
+                    }, common_1.HttpStatus.BAD_REQUEST);
+                }
+            }
+            let latFinal;
+            let lonFinal;
+            let cidadeAtualPorEndereco = null;
+            if (endereco) {
+                const resultadoEndereco = await this.cidadesService.buscarCoordenadasPorEndereco(endereco);
+                latFinal = resultadoEndereco.coordenadas.lat;
+                lonFinal = resultadoEndereco.coordenadas.lon;
+                cidadeAtualPorEndereco = {
+                    cidade: resultadoEndereco.cidade,
+                    estado: resultadoEndereco.estado,
+                    pais: resultadoEndereco.pais,
+                    endereco_completo: resultadoEndereco.endereco_completo,
+                    coordenadas: resultadoEndereco.coordenadas,
+                    doMongoDB: false,
+                };
+            }
+            else {
+                latFinal = lat;
+                lonFinal = lon;
+            }
             const limitNum = query.limit !== undefined && query.limit !== null
-                ? (typeof query.limit === 'string' ? parseInt(query.limit, 10) : query.limit)
+                ? (typeof query.limit === 'string' ? parseInt(query.limit, 10) : Number(query.limit))
                 : undefined;
             const skipNum = query.skip !== undefined && query.skip !== null
-                ? (typeof query.skip === 'string' ? parseInt(query.skip, 10) : query.skip)
+                ? (typeof query.skip === 'string' ? parseInt(query.skip, 10) : Number(query.skip))
                 : undefined;
             if (limitNum !== undefined && (isNaN(limitNum) || limitNum < 1 || limitNum > 100)) {
                 throw new common_1.HttpException({
@@ -44,8 +92,10 @@ let CidadesController = class CidadesController {
                 }, common_1.HttpStatus.BAD_REQUEST);
             }
             const [cidadeAtual, resultadoVizinhas] = await Promise.all([
-                this.cidadesService.obterCidadeAtual(lat, lon),
-                this.cidadesService.obterCidadesVizinhas(lat, lon, raioKm, limitNum, skipNum),
+                cidadeAtualPorEndereco
+                    ? Promise.resolve(cidadeAtualPorEndereco)
+                    : this.cidadesService.obterCidadeAtual(latFinal, lonFinal),
+                this.cidadesService.obterCidadesVizinhas(latFinal, lonFinal, raioKm, limitNum, skipNum),
             ]);
             return {
                 success: true,
@@ -68,7 +118,7 @@ let CidadesController = class CidadesController {
             throw new common_1.HttpException({
                 success: false,
                 message: error.message || 'Erro ao buscar cidades',
-            }, common_1.HttpStatus.INTERNAL_SERVER_ERROR);
+            }, error.status || common_1.HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
     async listarCidades(query) {
@@ -92,14 +142,110 @@ __decorate([
     (0, common_1.Get)(),
     (0, swagger_1.ApiOperation)({
         summary: 'Busca cidade atual e cidades vizinhas',
-        description: 'Retorna a cidade atual para as coordenadas fornecidas e todas as cidades vizinhas dentro do raio especificado'
+        description: 'Retorna a cidade atual e todas as cidades vizinhas dentro do raio especificado. Pode buscar por coordenadas (lat/lon) ou por nome de cidade/endereço (endereco). É necessário fornecer coordenadas OU endereco, não ambos.'
     }),
-    (0, swagger_1.ApiResponse)({ status: 200, description: 'Dados encontrados com sucesso' }),
-    (0, swagger_1.ApiResponse)({ status: 400, description: 'Parâmetros inválidos' }),
+    (0, swagger_1.ApiQuery)({
+        name: 'lat',
+        required: false,
+        type: Number,
+        description: 'Latitude da coordenada central (obrigatório se endereco não for fornecido)',
+        example: -23.5178,
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: 'lon',
+        required: false,
+        type: Number,
+        description: 'Longitude da coordenada central (obrigatório se endereco não for fornecido)',
+        example: -46.1894,
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: 'endereco',
+        required: false,
+        type: String,
+        description: 'Nome da cidade ou endereço completo (obrigatório se lat/lon não forem fornecidos). Exemplos: "São Paulo, SP", "Rio de Janeiro, RJ", "Brasília, DF"',
+        example: 'São Paulo, SP',
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: 'raioKm',
+        required: true,
+        type: Number,
+        description: 'Raio em quilômetros para buscar cidades vizinhas',
+        example: 30,
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: 'limit',
+        required: false,
+        type: Number,
+        description: 'Número máximo de cidades vizinhas para retornar (padrão: 20, máximo: 100)',
+        example: 20,
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: 'skip',
+        required: false,
+        type: Number,
+        description: 'Número de cidades vizinhas para pular na paginação (padrão: 0)',
+        example: 0,
+    }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'Dados encontrados com sucesso',
+        schema: {
+            type: 'object',
+            properties: {
+                success: { type: 'boolean', example: true },
+                data: {
+                    type: 'object',
+                    properties: {
+                        cidadeAtual: {
+                            type: 'object',
+                            properties: {
+                                cidade: { type: 'string', example: 'São Paulo' },
+                                estado: { type: 'string', example: 'SP' },
+                                pais: { type: 'string', example: 'BR' },
+                                endereco_completo: { type: 'string', example: 'São Paulo, SP, Brasil' },
+                                coordenadas: {
+                                    type: 'object',
+                                    properties: {
+                                        lat: { type: 'number', example: -23.5557714 },
+                                        lon: { type: 'number', example: -46.6395571 },
+                                    },
+                                },
+                                fonte: { type: 'string', example: 'Google Maps API' },
+                            },
+                        },
+                        cidadesVizinhas: {
+                            type: 'object',
+                            properties: {
+                                cidades: {
+                                    type: 'array',
+                                    items: {
+                                        type: 'object',
+                                        properties: {
+                                            nome: { type: 'string', example: 'Osasco' },
+                                            estado: { type: 'string', example: 'SP' },
+                                            pais: { type: 'string', example: 'BR' },
+                                            distancia_km: { type: 'number', example: 18.03 },
+                                            lat: { type: 'number', example: -23.5557409 },
+                                            lon: { type: 'number', example: -46.8164283 },
+                                        },
+                                    },
+                                },
+                                total: { type: 'number', example: 8 },
+                                limit: { type: 'number', example: 20 },
+                                skip: { type: 'number', example: 0 },
+                                fonte: { type: 'string', example: 'Google Maps API' },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Parâmetros inválidos - é necessário fornecer coordenadas (lat e lon) OU um endereco' }),
     (0, swagger_1.ApiResponse)({ status: 500, description: 'Erro interno do servidor' }),
-    __param(0, (0, common_1.Query)(new common_1.ValidationPipe({ whitelist: true, transform: true }))),
+    __param(0, (0, common_1.Query)()),
     __metadata("design:type", Function),
-    __metadata("design:paramtypes", [buscar_cidades_dto_1.BuscarCidadesDto]),
+    __metadata("design:paramtypes", [Object]),
     __metadata("design:returntype", Promise)
 ], CidadesController.prototype, "obterCidades", null);
 __decorate([

@@ -14,6 +14,60 @@ export class GoogleMapsService {
   }
 
   /**
+   * Busca coordenadas por endereço/nome de cidade (Geocoding)
+   */
+  async buscarPorEndereco(endereco: string) {
+    try {
+      const response = await this.client.geocode({
+        params: {
+          address: endereco,
+          key: this.apiKey,
+          language: 'pt-BR' as any,
+        },
+      });
+
+      if (!response.data.results?.length) {
+        throw new Error('Endereço não encontrado');
+      }
+
+      const resultado = response.data.results[0];
+      const geometry = (resultado.geometry || {}) as any;
+      const location = geometry.location || {};
+
+      if (!location.lat || !location.lng) {
+        throw new Error('Coordenadas não encontradas para o endereço');
+      }
+
+      let cidade = '', estado = '', pais = '';
+
+      for (const comp of resultado.address_components || []) {
+        const tipos = (comp.types || []) as string[];
+
+        if (tipos.includes('locality') || tipos.includes('administrative_area_level_2')) {
+          cidade = comp.long_name;
+        } else if (tipos.includes('administrative_area_level_1')) {
+          estado = comp.short_name;
+        } else if (tipos.includes('country')) {
+          pais = comp.short_name;
+        }
+      }
+
+      return {
+        cidade: cidade || resultado.formatted_address || 'Não encontrada',
+        estado,
+        pais,
+        endereco_completo: resultado.formatted_address,
+        coordenadas: {
+          lat: location.lat,
+          lon: location.lng,
+        },
+      };
+    } catch (error) {
+      throw new Error(`Erro ao buscar endereço: ${error.message}`);
+    }
+  }
+
+  /**
    * Obtém informações da cidade atual via Geocoding
    */
   async obterCidadeAtual(lat: number, lon: number) {

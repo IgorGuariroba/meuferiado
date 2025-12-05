@@ -1,31 +1,12 @@
 import { CidadesService } from './services/cidades.service';
-import { BuscarCidadesDto } from './dto/buscar-cidades.dto';
 import { ListarCidadesDto } from './dto/listar-cidades.dto';
 export declare class CidadesController {
     private readonly cidadesService;
     constructor(cidadesService: CidadesService);
-    obterCidades(query: BuscarCidadesDto): Promise<{
+    obterCidades(query: any): Promise<{
         success: boolean;
         data: {
-            cidadeAtual: {
-                fonte: string;
-                doMongoDB: boolean;
-                cidade: string;
-                estado: string;
-                pais: string;
-                endereco_completo: string;
-            } | {
-                fonte: string;
-                doMongoDB: boolean;
-                cidade: string;
-                estado: string;
-                pais: string;
-                endereco_completo: string;
-                coordenadas: {
-                    lat: number;
-                    lon: number;
-                };
-            };
+            cidadeAtual: any;
             cidadesVizinhas: {
                 cidades: any[];
                 total: number;

@@ -151,6 +151,18 @@ export class CidadesService {
   }
 
   /**
+   * Busca coordenadas por endereço/nome de cidade
+   */
+  async buscarCoordenadasPorEndereco(endereco: string) {
+    try {
+      const resultado = await this.googleMapsService.buscarPorEndereco(endereco);
+      return resultado;
+    } catch (error) {
+      throw new Error(`Erro ao buscar endereço: ${error.message}`);
+    }
+  }
+
+  /**
    * Obtém cidade atual (busca MongoDB primeiro, depois API)
    */
   async obterCidadeAtual(lat: number, lon: number) {
