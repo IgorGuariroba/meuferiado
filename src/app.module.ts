@@ -3,6 +3,7 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule } from '@nestjs/config';
 import { CidadesModule } from './cidades/cidades.module';
 import { LocaisModule } from './locais/locais.module';
+import { CommandsModule } from './commands/commands.module';
 
 @Module({
   imports: [
@@ -15,6 +16,7 @@ import { LocaisModule } from './locais/locais.module';
     ),
     CidadesModule,
     LocaisModule,
+    CommandsModule,
   ],
 })
 export class AppModule {}
