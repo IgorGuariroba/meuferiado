@@ -9,7 +9,9 @@
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main",
     "build": "nest build",
-    "test": "node cidades_vizinhas.js -23.5178 -46.1894 30"
+    "test": "jest",
+    "test:watch": "jest --watch",
+    "test:cov": "jest --coverage"
   },
   "keywords": [
     "google-maps",
@@ -40,7 +42,11 @@
   },
   "devDependencies": {
     "@nestjs/cli": "^11.0.14",
+    "@nestjs/testing": "^11.1.9",
+    "@types/jest": "^30.0.0",
     "@types/node": "^24.10.1",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.6",
     "ts-node": "^10.9.2",
     "typescript": "^5.9.3"
   }

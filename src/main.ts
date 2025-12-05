@@ -13,10 +13,11 @@ async function bootstrap() {
 
   // Configurar Swagger
   const config = new DocumentBuilder()
-    .setTitle('API de Cidades Vizinhas')
-    .setDescription('API para buscar cidade atual e cidades vizinhas usando coordenadas geográficas ou nome de cidade/endereço. Utiliza Google Maps Geocoding API para geocodificação e MongoDB para cache de dados. Suporta busca por coordenadas (lat/lon) ou por endereço/nome de cidade.')
+    .setTitle('API de Cidades Vizinhas e Locais de Hospedagem')
+    .setDescription('API para buscar cidade atual e cidades vizinhas usando coordenadas geográficas ou nome de cidade/endereço. Também gerencia locais de hospedagem (Casa de praia, Chalé, Pousada, etc.) com filtros por tipo, preço e localização. Utiliza Google Maps Geocoding API para geocodificação e MongoDB para armazenamento.')
     .setVersion('1.0')
     .addTag('cidades', 'Endpoints para buscar informações sobre cidades')
+    .addTag('locais', 'Endpoints para gerenciar locais de hospedagem')
     .build();
 
   const document = SwaggerModule.createDocument(app, config);

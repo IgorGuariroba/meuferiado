@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { MongooseModule } from '@nestjs/mongoose';
 import { ConfigModule } from '@nestjs/config';
 import { CidadesModule } from './cidades/cidades.module';
+import { LocaisModule } from './locais/locais.module';
 
 @Module({
   imports: [
@@ -13,6 +14,7 @@ import { CidadesModule } from './cidades/cidades.module';
       process.env.MONGODB_URI || 'mongodb://admin:admin123@localhost:27017/cidades?authSource=admin',
     ),
     CidadesModule,
+    LocaisModule,
   ],
 })
 export class AppModule {}

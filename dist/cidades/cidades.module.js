@@ -23,6 +23,7 @@ exports.CidadesModule = CidadesModule = __decorate([
         ],
         controllers: [cidades_controller_1.CidadesController],
         providers: [cidades_service_1.CidadesService, google_maps_service_1.GoogleMapsService],
+        exports: [cidades_service_1.CidadesService, google_maps_service_1.GoogleMapsService],
     })
 ], CidadesModule);
 //# sourceMappingURL=cidades.module.js.map

@@ -7,10 +7,11 @@ async function bootstrap() {
     const app = await core_1.NestFactory.create(app_module_1.AppModule);
     app.enableCors();
     const config = new swagger_1.DocumentBuilder()
-        .setTitle('API de Cidades Vizinhas')
-        .setDescription('API para buscar cidade atual e cidades vizinhas usando coordenadas geográficas ou nome de cidade/endereço. Utiliza Google Maps Geocoding API para geocodificação e MongoDB para cache de dados. Suporta busca por coordenadas (lat/lon) ou por endereço/nome de cidade.')
+        .setTitle('API de Cidades Vizinhas e Locais de Hospedagem')
+        .setDescription('API para buscar cidade atual e cidades vizinhas usando coordenadas geográficas ou nome de cidade/endereço. Também gerencia locais de hospedagem (Casa de praia, Chalé, Pousada, etc.) com filtros por tipo, preço e localização. Utiliza Google Maps Geocoding API para geocodificação e MongoDB para armazenamento.')
         .setVersion('1.0')
         .addTag('cidades', 'Endpoints para buscar informações sobre cidades')
+        .addTag('locais', 'Endpoints para gerenciar locais de hospedagem')
         .build();
     const document = swagger_1.SwaggerModule.createDocument(app, config);
     swagger_1.SwaggerModule.setup('docs', app, document);

@@ -11,6 +11,7 @@ import { Cidade, CidadeSchema } from './schemas/cidade.schema';
   ],
   controllers: [CidadesController],
   providers: [CidadesService, GoogleMapsService],
+  exports: [CidadesService, GoogleMapsService],
 })
 export class CidadesModule {}
 
