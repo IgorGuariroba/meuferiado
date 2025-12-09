@@ -1,0 +1,98 @@
+"use strict";
+var __decorate = (this && this.__decorate) || function (decorators, target, key, desc) {
+    var c = arguments.length, r = c < 3 ? target : desc === null ? desc = Object.getOwnPropertyDescriptor(target, key) : desc, d;
+    if (typeof Reflect === "object" && typeof Reflect.decorate === "function") r = Reflect.decorate(decorators, target, key, desc);
+    else for (var i = decorators.length - 1; i >= 0; i--) if (d = decorators[i]) r = (c < 3 ? d(r) : c > 3 ? d(target, key, r) : d(target, key)) || r;
+    return c > 3 && r && Object.defineProperty(target, key, r), r;
+};
+var __metadata = (this && this.__metadata) || function (k, v) {
+    if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
+};
+Object.defineProperty(exports, "__esModule", { value: true });
+exports.BuscarCidadesDto = void 0;
+const class_validator_1 = require("class-validator");
+const class_transformer_1 = require("class-transformer");
+const swagger_1 = require("@nestjs/swagger");
+class BuscarCidadesDto {
+}
+exports.BuscarCidadesDto = BuscarCidadesDto;
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Latitude da coordenada central (obrigatório se endereco não for fornecido)',
+        example: -23.5178,
+        minimum: -90,
+        maximum: 90,
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(-90),
+    (0, class_validator_1.Max)(90),
+    __metadata("design:type", Number)
+], BuscarCidadesDto.prototype, "lat", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Longitude da coordenada central (obrigatório se endereco não for fornecido)',
+        example: -46.1894,
+        minimum: -180,
+        maximum: 180,
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(-180),
+    (0, class_validator_1.Max)(180),
+    __metadata("design:type", Number)
+], BuscarCidadesDto.prototype, "lon", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Nome da cidade ou endereço (obrigatório se lat/lon não forem fornecidos)',
+        example: 'São Paulo, SP',
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], BuscarCidadesDto.prototype, "endereco", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        description: 'Raio em quilômetros para buscar cidades vizinhas',
+        example: 30,
+        minimum: 1,
+        maximum: 1000,
+    }),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.IsNotEmpty)(),
+    (0, class_validator_1.Min)(1),
+    (0, class_validator_1.Max)(1000),
+    __metadata("design:type", Number)
+], BuscarCidadesDto.prototype, "raioKm", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Número máximo de cidades vizinhas para retornar',
+        example: 20,
+        minimum: 1,
+        maximum: 100,
+        default: 20,
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(1),
+    (0, class_validator_1.Max)(100),
+    __metadata("design:type", Number)
+], BuscarCidadesDto.prototype, "limit", void 0);
+__decorate([
+    (0, swagger_1.ApiPropertyOptional)({
+        description: 'Número de cidades vizinhas para pular (paginação)',
+        example: 0,
+        minimum: 0,
+        default: 0,
+    }),
+    (0, class_validator_1.IsOptional)(),
+    (0, class_transformer_1.Type)(() => Number),
+    (0, class_validator_1.IsNumber)(),
+    (0, class_validator_1.Min)(0),
+    __metadata("design:type", Number)
+], BuscarCidadesDto.prototype, "skip", void 0);
+//# sourceMappingURL=buscar-cidades.dto.js.map
