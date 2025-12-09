@@ -821,5 +821,198 @@ export class CidadesController {
       );
     }
   }
+
+  @Get('termos-busca')
+  @ApiOperation({
+    summary: 'Lista todos os termos de busca disponíveis',
+    description: 'Retorna todos os termos de busca que podem ser usados na rota /api/cidades/locais'
+  })
+  @ApiQuery({
+    name: 'ativo',
+    required: false,
+    type: Boolean,
+    description: 'Filtrar apenas termos ativos (true) ou inativos (false). Se não fornecido, retorna todos.',
+    example: true,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Lista de termos de busca retornada com sucesso',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'object',
+          properties: {
+            termos: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+                  termo: { type: 'string', example: 'chalé' },
+                  descricao: { type: 'string', example: 'Chalés e casas de campo' },
+                  ativo: { type: 'boolean', example: true },
+                  criadoEm: { type: 'string', format: 'date-time' },
+                  atualizadoEm: { type: 'string', format: 'date-time' },
+                },
+              },
+            },
+            total: { type: 'number', example: 67 },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 500, description: 'Erro interno do servidor' })
+  async listarTermosBusca(
+    @Query('ativo') ativo?: string,
+  ) {
+    try {
+      const ativoBoolean = ativo === 'true' ? true : ativo === 'false' ? false : undefined;
+      const resultado = await this.cidadesService.listarTermosBusca(ativoBoolean);
+
+      return {
+        success: true,
+        data: resultado,
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message || 'Erro ao listar termos de busca',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Post('termos-busca')
+  @ApiOperation({
+    summary: 'Adiciona um novo termo de busca',
+    description: 'Adiciona um novo termo que pode ser usado na rota /api/cidades/locais'
+  })
+  @ApiBody({
+    type: CriarTermoBuscaDto,
+    description: 'Dados do termo de busca a ser criado',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Termo de busca criado com sucesso',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'object',
+          properties: {
+            _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+            termo: { type: 'string', example: 'chalé' },
+            descricao: { type: 'string', example: 'Chalés e casas de campo' },
+            ativo: { type: 'boolean', example: true },
+            criadoEm: { type: 'string', format: 'date-time' },
+            atualizadoEm: { type: 'string', format: 'date-time' },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Dados inválidos ou termo já existe' })
+  @ApiResponse({ status: 500, description: 'Erro interno do servidor' })
+  async criarTermoBusca(
+    @Body(new ValidationPipe({ whitelist: true, transform: true })) criarTermoBuscaDto: CriarTermoBuscaDto,
+  ) {
+    try {
+      const termo = await this.cidadesService.criarTermoBusca(
+        criarTermoBuscaDto.termo,
+        criarTermoBuscaDto.descricao,
+        criarTermoBuscaDto.ativo !== undefined ? criarTermoBuscaDto.ativo : true,
+      );
+
+      return {
+        success: true,
+        data: termo,
+      };
+    } catch (error) {
+      const statusCode = error.message.includes('já existe')
+        ? HttpStatus.BAD_REQUEST
+        : HttpStatus.INTERNAL_SERVER_ERROR;
+
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message || 'Erro ao criar termo de busca',
+        },
+        statusCode,
+      );
+    }
+  }
+
+  @Delete('termos-busca')
+  @ApiOperation({
+    summary: 'Exclui um termo de busca',
+    description: 'Remove um termo de busca da lista de termos disponíveis'
+  })
+  @ApiQuery({
+    name: 'termo',
+    required: true,
+    type: String,
+    description: 'O termo a ser excluído (ex: "chalé", "cabana")',
+    example: 'chalé',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Termo de busca excluído com sucesso',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'object',
+          properties: {
+            termo: { type: 'string', example: 'chalé' },
+            excluido: { type: 'boolean', example: true },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'termo é obrigatório' })
+  @ApiResponse({ status: 404, description: 'Termo não encontrado' })
+  @ApiResponse({ status: 500, description: 'Erro interno do servidor' })
+  async excluirTermoBusca(
+    @Query('termo') termo: string,
+  ) {
+    try {
+      if (!termo) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'termo é obrigatório',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const resultado = await this.cidadesService.excluirTermoBusca(termo);
+
+      return {
+        success: true,
+        data: resultado,
+      };
+    } catch (error) {
+      const statusCode = error.message.includes('não encontrado')
+        ? HttpStatus.NOT_FOUND
+        : HttpStatus.INTERNAL_SERVER_ERROR;
+
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message || 'Erro ao excluir termo de busca',
+        },
+        statusCode,
+      );
+    }
+  }
 }
 

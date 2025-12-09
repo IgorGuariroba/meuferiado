@@ -19,6 +19,7 @@ const cidades_service_1 = require("./services/cidades.service");
 const listar_cidades_dto_1 = require("./dto/listar-cidades.dto");
 const buscar_locais_dto_1 = require("./dto/buscar-locais.dto");
 const buscar_locais_salvos_dto_1 = require("./dto/buscar-locais-salvos.dto");
+const criar_termo_busca_dto_1 = require("./dto/criar-termo-busca.dto");
 const tipos_locais_enum_1 = require("./dto/tipos-locais.enum");
 let CidadesController = class CidadesController {
     constructor(cidadesService) {
@@ -264,6 +265,64 @@ let CidadesController = class CidadesController {
                 success: false,
                 message: error.message || 'Erro ao gerar URL da foto',
             }, common_1.HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+    async listarTermosBusca(ativo) {
+        try {
+            const ativoBoolean = ativo === 'true' ? true : ativo === 'false' ? false : undefined;
+            const resultado = await this.cidadesService.listarTermosBusca(ativoBoolean);
+            return {
+                success: true,
+                data: resultado,
+            };
+        }
+        catch (error) {
+            throw new common_1.HttpException({
+                success: false,
+                message: error.message || 'Erro ao listar termos de busca',
+            }, common_1.HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+    async criarTermoBusca(criarTermoBuscaDto) {
+        try {
+            const termo = await this.cidadesService.criarTermoBusca(criarTermoBuscaDto.termo, criarTermoBuscaDto.descricao, criarTermoBuscaDto.ativo !== undefined ? criarTermoBuscaDto.ativo : true);
+            return {
+                success: true,
+                data: termo,
+            };
+        }
+        catch (error) {
+            const statusCode = error.message.includes('já existe')
+                ? common_1.HttpStatus.BAD_REQUEST
+                : common_1.HttpStatus.INTERNAL_SERVER_ERROR;
+            throw new common_1.HttpException({
+                success: false,
+                message: error.message || 'Erro ao criar termo de busca',
+            }, statusCode);
+        }
+    }
+    async excluirTermoBusca(termo) {
+        try {
+            if (!termo) {
+                throw new common_1.HttpException({
+                    success: false,
+                    message: 'termo é obrigatório',
+                }, common_1.HttpStatus.BAD_REQUEST);
+            }
+            const resultado = await this.cidadesService.excluirTermoBusca(termo);
+            return {
+                success: true,
+                data: resultado,
+            };
+        }
+        catch (error) {
+            const statusCode = error.message.includes('não encontrado')
+                ? common_1.HttpStatus.NOT_FOUND
+                : common_1.HttpStatus.INTERNAL_SERVER_ERROR;
+            throw new common_1.HttpException({
+                success: false,
+                message: error.message || 'Erro ao excluir termo de busca',
+            }, statusCode);
         }
     }
 };
@@ -760,6 +819,131 @@ __decorate([
     __metadata("design:paramtypes", [String, String, String]),
     __metadata("design:returntype", Promise)
 ], CidadesController.prototype, "gerarUrlFoto", null);
+__decorate([
+    (0, common_1.Get)('termos-busca'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Lista todos os termos de busca disponíveis',
+        description: 'Retorna todos os termos de busca que podem ser usados na rota /api/cidades/locais'
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: 'ativo',
+        required: false,
+        type: Boolean,
+        description: 'Filtrar apenas termos ativos (true) ou inativos (false). Se não fornecido, retorna todos.',
+        example: true,
+    }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'Lista de termos de busca retornada com sucesso',
+        schema: {
+            type: 'object',
+            properties: {
+                success: { type: 'boolean', example: true },
+                data: {
+                    type: 'object',
+                    properties: {
+                        termos: {
+                            type: 'array',
+                            items: {
+                                type: 'object',
+                                properties: {
+                                    _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+                                    termo: { type: 'string', example: 'chalé' },
+                                    descricao: { type: 'string', example: 'Chalés e casas de campo' },
+                                    ativo: { type: 'boolean', example: true },
+                                    criadoEm: { type: 'string', format: 'date-time' },
+                                    atualizadoEm: { type: 'string', format: 'date-time' },
+                                },
+                            },
+                        },
+                        total: { type: 'number', example: 67 },
+                    },
+                },
+            },
+        },
+    }),
+    (0, swagger_1.ApiResponse)({ status: 500, description: 'Erro interno do servidor' }),
+    __param(0, (0, common_1.Query)('ativo')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], CidadesController.prototype, "listarTermosBusca", null);
+__decorate([
+    (0, common_1.Post)('termos-busca'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Adiciona um novo termo de busca',
+        description: 'Adiciona um novo termo que pode ser usado na rota /api/cidades/locais'
+    }),
+    (0, swagger_1.ApiBody)({
+        type: criar_termo_busca_dto_1.CriarTermoBuscaDto,
+        description: 'Dados do termo de busca a ser criado',
+    }),
+    (0, swagger_1.ApiResponse)({
+        status: 201,
+        description: 'Termo de busca criado com sucesso',
+        schema: {
+            type: 'object',
+            properties: {
+                success: { type: 'boolean', example: true },
+                data: {
+                    type: 'object',
+                    properties: {
+                        _id: { type: 'string', example: '507f1f77bcf86cd799439011' },
+                        termo: { type: 'string', example: 'chalé' },
+                        descricao: { type: 'string', example: 'Chalés e casas de campo' },
+                        ativo: { type: 'boolean', example: true },
+                        criadoEm: { type: 'string', format: 'date-time' },
+                        atualizadoEm: { type: 'string', format: 'date-time' },
+                    },
+                },
+            },
+        },
+    }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Dados inválidos ou termo já existe' }),
+    (0, swagger_1.ApiResponse)({ status: 500, description: 'Erro interno do servidor' }),
+    __param(0, (0, common_1.Body)(new common_1.ValidationPipe({ whitelist: true, transform: true }))),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [criar_termo_busca_dto_1.CriarTermoBuscaDto]),
+    __metadata("design:returntype", Promise)
+], CidadesController.prototype, "criarTermoBusca", null);
+__decorate([
+    (0, common_1.Delete)('termos-busca'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Exclui um termo de busca',
+        description: 'Remove um termo de busca da lista de termos disponíveis'
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: 'termo',
+        required: true,
+        type: String,
+        description: 'O termo a ser excluído (ex: "chalé", "cabana")',
+        example: 'chalé',
+    }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'Termo de busca excluído com sucesso',
+        schema: {
+            type: 'object',
+            properties: {
+                success: { type: 'boolean', example: true },
+                data: {
+                    type: 'object',
+                    properties: {
+                        termo: { type: 'string', example: 'chalé' },
+                        excluido: { type: 'boolean', example: true },
+                    },
+                },
+            },
+        },
+    }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'termo é obrigatório' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'Termo não encontrado' }),
+    (0, swagger_1.ApiResponse)({ status: 500, description: 'Erro interno do servidor' }),
+    __param(0, (0, common_1.Query)('termo')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String]),
+    __metadata("design:returntype", Promise)
+], CidadesController.prototype, "excluirTermoBusca", null);
 exports.CidadesController = CidadesController = __decorate([
     (0, swagger_1.ApiTags)('cidades'),
     (0, common_1.Controller)('api/cidades'),

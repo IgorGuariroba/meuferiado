@@ -2,6 +2,7 @@ import { CidadesService } from './services/cidades.service';
 import { ListarCidadesDto } from './dto/listar-cidades.dto';
 import { BuscarLocaisDto } from './dto/buscar-locais.dto';
 import { BuscarLocaisSalvosDto } from './dto/buscar-locais-salvos.dto';
+import { CriarTermoBuscaDto } from './dto/criar-termo-busca.dto';
 export declare class CidadesController {
     private readonly cidadesService;
     constructor(cidadesService: CidadesService);
@@ -161,6 +162,32 @@ export declare class CidadesController {
             photo_reference: string;
             maxWidth: number;
             maxHeight: number;
+        };
+    }>;
+    listarTermosBusca(ativo?: string): Promise<{
+        success: boolean;
+        data: {
+            termos: (import("./schemas/termo-busca.schema").TermoBusca & import("mongoose").Document<import("mongoose").Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
+                _id: import("mongoose").Types.ObjectId;
+            }> & {
+                __v: number;
+            })[];
+            total: number;
+        };
+    }>;
+    criarTermoBusca(criarTermoBuscaDto: CriarTermoBuscaDto): Promise<{
+        success: boolean;
+        data: import("mongoose").Document<unknown, {}, import("./schemas/termo-busca.schema").TermoBuscaDocument, {}, import("mongoose").DefaultSchemaOptions> & import("./schemas/termo-busca.schema").TermoBusca & import("mongoose").Document<import("mongoose").Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
+            _id: import("mongoose").Types.ObjectId;
+        }> & {
+            __v: number;
+        };
+    }>;
+    excluirTermoBusca(termo: string): Promise<{
+        success: boolean;
+        data: {
+            termo: string;
+            excluido: boolean;
         };
     }>;
 }
