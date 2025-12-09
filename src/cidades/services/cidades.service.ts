@@ -1,14 +1,17 @@
 import { Injectable } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { Cidade, CidadeDocument } from '../schemas/cidade.schema';
+import { Local, LocalDocument } from '../../locais/schemas/local.schema';
 import { GoogleMapsService } from './google-maps.service';
 import { calcularDistancia } from '../../common/utils/calcular-distancia.util';
+import { mapearTipoLocal, estimarPrecoPorPriceLevel } from '../utils/mapear-tipo-local.util';
 
 @Injectable()
 export class CidadesService {
   constructor(
     @InjectModel(Cidade.name) private cidadeModel: Model<CidadeDocument>,
+    @InjectModel(Local.name) private localModel: Model<LocalDocument>,
     private googleMapsService: GoogleMapsService,
   ) {}
 
@@ -41,7 +44,6 @@ export class CidadesService {
 
       return null;
     } catch (error) {
-      console.error('Erro ao buscar cidade por coordenadas:', error.message);
       return null;
     }
   }
@@ -82,7 +84,6 @@ export class CidadesService {
 
       return cidadesComDistancia;
     } catch (error) {
-      console.error('Erro ao buscar cidades próximas:', error.message);
       return [];
     }
   }
@@ -125,7 +126,6 @@ export class CidadesService {
           pais: pais || '',
         });
       }
-      console.error('Erro ao salvar cidade:', error.message);
       return null;
     }
   }
@@ -281,20 +281,448 @@ export class CidadesService {
         skip: skip || 0,
       };
     } catch (error) {
-      console.error('Erro ao listar cidades:', error.message);
       throw new Error(`Erro ao listar cidades: ${error.message}`);
     }
   }
 
   /**
-   * Busca locais em uma cidade usando Places API
+   * Salva um local no MongoDB se ainda não existir (evita duplicatas por place_id)
+   */
+  async salvarLocalSeNaoExistir(
+    localData: any,
+    tipoQuery: string,
+    city: string,
+  ) {
+    try {
+      // Se não tem place_id, não podemos verificar duplicata de forma confiável
+      if (!localData.place_id) {
+        return null;
+      }
+
+      // Verificar se já existe pelo place_id
+      const localExistente = await this.localModel.findOne({
+        place_id: localData.place_id,
+      });
+
+      if (localExistente) {
+        // Verificar se há novos detalhes para atualizar
+        const temPhotosNovos = localData.photos?.length > 0;
+        const temReviewsNovos = localData.reviews?.length > 0;
+        const temTelefoneNovo = !!localData.formatted_phone_number;
+        const temWebsiteNovo = !!localData.website;
+        const temDetalhesNovos = temPhotosNovos || temReviewsNovos || temTelefoneNovo || temWebsiteNovo;
+
+        // Verificar se os detalhes atuais estão vazios ou incompletos
+        const photosVazios = !localExistente.photos || localExistente.photos.length === 0;
+        const reviewsVazios = !localExistente.reviews || localExistente.reviews.length === 0;
+        const telefoneVazio = !localExistente.formatted_phone_number;
+        const websiteVazio = !localExistente.website;
+
+        const precisaAtualizar = temDetalhesNovos && (photosVazios || reviewsVazios || telefoneVazio || websiteVazio);
+
+        if (precisaAtualizar) {
+          // Atualizar campos detalhados (sempre que houver novos dados)
+          if (temPhotosNovos && photosVazios) {
+            localExistente.photos = localData.photos;
+          }
+          if (temReviewsNovos && reviewsVazios) {
+            localExistente.reviews = localData.reviews;
+          }
+          if (temTelefoneNovo && telefoneVazio) {
+            localExistente.formatted_phone_number = localData.formatted_phone_number;
+          }
+          if (temWebsiteNovo && websiteVazio) {
+            localExistente.website = localData.website;
+          }
+          if (localData.url) localExistente.url = localData.url;
+          if (localData.opening_hours) localExistente.opening_hours = localData.opening_hours;
+          if (localData.current_opening_hours) localExistente.current_opening_hours = localData.current_opening_hours;
+          if (localData.open_now !== undefined) localExistente.open_now = localData.open_now;
+          if (localData.formatted_address) localExistente.formatted_address = localData.formatted_address;
+          if (localData.address_components?.length) localExistente.address_components = localData.address_components;
+          if (localData.business_status) localExistente.business_status = localData.business_status;
+
+          await localExistente.save();
+          return localExistente;
+        }
+
+        return localExistente;
+      }
+
+      // Buscar cidade relacionada
+      let cidadeId: Types.ObjectId | undefined;
+      try {
+        const cidade = await this.buscarCidadePorCoordenadas(
+          localData.coordenadas.lat,
+          localData.coordenadas.lon,
+          5,
+        );
+        if (cidade && cidade.cidade && cidade.cidade !== 'Não encontrada') {
+          const cidadeEncontrada = await this.cidadeModel.findOne({
+            nome: cidade.cidade,
+            estado: cidade.estado || '',
+            pais: cidade.pais || '',
+          });
+          if (cidadeEncontrada) {
+            cidadeId = cidadeEncontrada._id;
+          }
+        }
+      } catch (error) {
+        // Se não encontrar cidade, continua sem relacionar
+      }
+
+      // Mapear tipo da query para o enum do schema
+      const tipoLocal = mapearTipoLocal(tipoQuery);
+
+      // Estimar preço baseado no priceLevel
+      const preco = estimarPrecoPorPriceLevel(localData.nivel_preco);
+
+      // Criar novo local com todos os campos disponíveis
+      const local = new this.localModel({
+        tipo: tipoLocal,
+        nome: localData.nome,
+        endereco: localData.endereco || localData.formatted_address || '',
+        localizacao: {
+          type: 'Point',
+          coordinates: [localData.coordenadas.lon, localData.coordenadas.lat], // [longitude, latitude]
+        },
+        preco: preco,
+        avaliacao: localData.rating || undefined,
+        tipos: localData.tipos || [],
+        total_avaliacoes: localData.total_avaliacoes || 0,
+        place_id: localData.place_id,
+        cidade: cidadeId,
+        descricao: `Local encontrado em ${city}`,
+        // Fotos
+        photos: localData.photos || localData.fotos || [],
+        // Contato
+        formatted_phone_number: localData.formatted_phone_number || localData.telefone_formatado || undefined,
+        website: localData.website || undefined,
+        url: localData.url || localData.url_google_maps || undefined,
+        // Atualizar contato básico se disponível
+        contato: (localData.formatted_phone_number || localData.telefone_formatado) ? {
+          telefone: localData.formatted_phone_number || localData.telefone_formatado,
+          email: undefined,
+        } : undefined,
+        // Horários
+        opening_hours: localData.opening_hours || undefined,
+        current_opening_hours: localData.current_opening_hours || undefined,
+        open_now: localData.open_now || false,
+        // Avaliações
+        reviews: localData.reviews || [],
+        // Localização detalhada
+        formatted_address: localData.formatted_address || localData.endereco || undefined,
+        address_components: localData.address_components || [],
+        // Status do negócio
+        business_status: localData.business_status || undefined,
+      });
+
+      const localSalvo = await local.save();
+      return localSalvo;
+    } catch (error: any) {
+      // Se erro for de duplicata (índice único), buscar o existente
+      if (error.code === 11000) {
+        const existente = await this.localModel.findOne({
+          place_id: localData.place_id,
+        });
+        return existente;
+      }
+      return null;
+    }
+  }
+
+  /**
+   * Busca locais em uma cidade usando Places API e salva no MongoDB
    */
   async buscarLocaisPorCidade(query: string, city: string) {
     try {
       const locais = await this.googleMapsService.buscarLocaisPorCidade(query, city);
-      return locais;
+
+      // Salvar cada local no MongoDB (apenas se não existir)
+      const locaisSalvos = await Promise.allSettled(
+        locais.map(local =>
+          this.salvarLocalSeNaoExistir(local, query, city),
+        ),
+      );
+
+      // Processar resultados
+      const salvosComSucesso = [];
+
+      locaisSalvos.forEach((result) => {
+        if (result.status === 'fulfilled' && result.value !== null) {
+          salvosComSucesso.push(result.value);
+        }
+      });
+
+      // Formatar locais para o mesmo formato da rota de locais salvos
+      const locaisFormatados = locais.map(local => {
+        // Buscar o local salvo correspondente para pegar o ID e outros campos do MongoDB
+        const localSalvo = salvosComSucesso.find(l => l.place_id === local.place_id);
+
+        return {
+          id: localSalvo?._id?.toString() || null,
+          tipo: localSalvo?.tipo || mapearTipoLocal(query),
+          nome: local.nome,
+          descricao: localSalvo?.descricao || `Local encontrado em ${city}`,
+          endereco: local.endereco,
+          formatted_address: local.formatted_address || local.endereco,
+          coordenadas: local.coordenadas,
+          preco: localSalvo?.preco || estimarPrecoPorPriceLevel(local.nivel_preco),
+          avaliacao: local.rating || localSalvo?.avaliacao,
+          place_id: local.place_id,
+          photos: local.photos || [],
+          formatted_phone_number: local.formatted_phone_number,
+          website: local.website,
+          url: local.url,
+          opening_hours: local.opening_hours || [],
+          current_opening_hours: local.current_opening_hours,
+          open_now: local.open_now || false,
+          reviews: local.reviews || [],
+          address_components: local.address_components || [],
+          business_status: local.business_status,
+          criadoEm: localSalvo?.criadoEm || null,
+          atualizadoEm: localSalvo?.atualizadoEm || null,
+        };
+      });
+
+      return locaisFormatados;
     } catch (error) {
       throw new Error(`Erro ao buscar locais: ${error.message}`);
+    }
+  }
+
+  /**
+   * Busca locais salvos no MongoDB por nome da cidade
+   */
+  async buscarLocaisSalvosPorCidade(city: string, estado?: string, limit: number = 50, skip: number = 0) {
+    try {
+      // Validar limit
+      const limitFinal = Math.min(Math.max(1, limit || 50), 100);
+      const skipFinal = Math.max(0, skip || 0);
+
+      // Buscar cidade no MongoDB
+      const queryCidade: any = {
+        nome: { $regex: new RegExp(`^${city}$`, 'i') }, // Case-insensitive exact match
+      };
+
+      if (estado) {
+        queryCidade.estado = { $regex: new RegExp(`^${estado}$`, 'i') };
+      }
+
+      const cidade = await this.cidadeModel.findOne(queryCidade);
+
+      if (!cidade) {
+        return {
+          locais: [],
+          total: 0,
+          cidade: null,
+          limit: limitFinal,
+          skip: skipFinal,
+        };
+      }
+
+      // Buscar locais relacionados à cidade
+      const queryLocais: any = {
+        cidade: cidade._id,
+      };
+
+      const [locais, total] = await Promise.all([
+        this.localModel
+          .find(queryLocais)
+          .limit(limitFinal)
+          .skip(skipFinal)
+          .sort({ criadoEm: -1 })
+          .lean()
+          .exec(),
+        this.localModel.countDocuments(queryLocais),
+      ]);
+
+      // Transformar para formato de resposta (mesmo formato da API)
+      const locaisFormatados = locais.map(local => ({
+        nome: local.nome,
+        endereco: local.endereco || local.formatted_address || '',
+        coordenadas: {
+          lat: local.localizacao.coordinates[1],
+          lon: local.localizacao.coordinates[0],
+        },
+        rating: local.avaliacao || null,
+        total_avaliacoes: local.total_avaliacoes || local.reviews?.length || null,
+        tipos: local.tipos || [],
+        place_id: local.place_id,
+        nivel_preco: local.preco ? (local.preco >= 1200 ? 4 : local.preco >= 600 ? 3 : local.preco >= 300 ? 2 : local.preco >= 150 ? 1 : 0) : null,
+        photos: local.photos || [],
+        formatted_phone_number: local.formatted_phone_number,
+        website: local.website,
+        url: local.url,
+        opening_hours: local.opening_hours || [],
+        current_opening_hours: local.current_opening_hours,
+        open_now: local.open_now || false,
+        reviews: local.reviews || [],
+        formatted_address: local.formatted_address || local.endereco || '',
+        address_components: local.address_components || [],
+        business_status: local.business_status,
+      }));
+
+      return {
+        locais: locaisFormatados,
+        total,
+        cidade: {
+          id: cidade._id.toString(),
+          nome: cidade.nome,
+          estado: cidade.estado,
+          pais: cidade.pais,
+        },
+        limit: limitFinal,
+        skip: skipFinal,
+      };
+    } catch (error) {
+      throw new Error(`Erro ao buscar locais salvos: ${error.message}`);
+    }
+  }
+
+  /**
+   * Atualiza locais existentes que não têm detalhes completos
+   */
+  async atualizarLocaisSemDetalhes(city: string, estado?: string, limit: number = 10) {
+    try {
+      // Buscar cidade
+      const queryCidade: any = {
+        nome: { $regex: new RegExp(`^${city}$`, 'i') },
+      };
+      if (estado) {
+        queryCidade.estado = { $regex: new RegExp(`^${estado}$`, 'i') };
+      }
+
+      const cidade = await this.cidadeModel.findOne(queryCidade);
+      if (!cidade) {
+        throw new Error(`Cidade não encontrada: ${city}`);
+      }
+
+      // Buscar locais que não têm detalhes completos
+      const queryLocais: any = {
+        cidade: cidade._id,
+        $or: [
+          { photos: { $exists: false } },
+          { photos: { $size: 0 } },
+          { reviews: { $exists: false } },
+          { reviews: { $size: 0 } },
+          { formatted_phone_number: { $exists: false } },
+          { formatted_phone_number: null },
+          { website: { $exists: false } },
+          { website: null },
+        ],
+      };
+
+      const locaisSemDetalhes = await this.localModel
+        .find(queryLocais)
+        .limit(limit)
+        .exec();
+
+      const resultados = {
+        atualizados: 0,
+        erros: 0,
+        locais: [],
+      };
+
+      for (const local of locaisSemDetalhes) {
+        if (!local.place_id) {
+          continue;
+        }
+
+        try {
+          // Buscar detalhes completos
+          const detalhes = await this.googleMapsService.buscarDetalhesLocal(`places/${local.place_id}`);
+
+          if (!detalhes) {
+            continue;
+          }
+
+          // Atualizar campos
+          let atualizouAlgo = false;
+
+          if (detalhes.photos?.length > 0 && (!local.photos || local.photos.length === 0)) {
+            local.photos = detalhes.photos.map((photo: any) => ({
+              photo_reference: photo.name || null,
+              width: photo.widthPx || null,
+              height: photo.heightPx || null,
+            }));
+            atualizouAlgo = true;
+          }
+
+          if (detalhes.reviews?.length > 0 && (!local.reviews || local.reviews.length === 0)) {
+            local.reviews = detalhes.reviews.map((review: any) => ({
+              autor: review.authorAttribution?.displayName || 'Anônimo',
+              rating: review.rating || null,
+              texto: review.text?.text || '',
+              data: review.publishTime || null,
+            }));
+            atualizouAlgo = true;
+          }
+
+          if (detalhes.nationalPhoneNumber && !local.formatted_phone_number) {
+            local.formatted_phone_number = detalhes.nationalPhoneNumber || detalhes.internationalPhoneNumber;
+          }
+
+          if (detalhes.websiteUri && !local.website) {
+            local.website = detalhes.websiteUri;
+          }
+
+          if (detalhes.googleMapsUri && !local.url) {
+            local.url = detalhes.googleMapsUri;
+          }
+
+          if (detalhes.formattedAddress && !local.formatted_address) {
+            local.formatted_address = detalhes.formattedAddress;
+          }
+
+          if (detalhes.addressComponents?.length > 0 && (!local.address_components || local.address_components.length === 0)) {
+            local.address_components = detalhes.addressComponents.map((comp: any) => ({
+              tipo: comp.types || [],
+              nome_longo: comp.longText || null,
+              nome_curto: comp.shortText || null,
+              linguagem: comp.languageCode || null,
+            }));
+          }
+
+          if (detalhes.businessStatus && !local.business_status) {
+            local.business_status = detalhes.businessStatus;
+          }
+
+          // Atualizar tipos e total_avaliacoes se disponíveis
+          if (detalhes.types && (!local.tipos || local.tipos.length === 0)) {
+            local.tipos = detalhes.types;
+          }
+          if (detalhes.userRatingCount && !local.total_avaliacoes) {
+            local.total_avaliacoes = detalhes.userRatingCount;
+          }
+
+          if (atualizouAlgo) {
+            await local.save();
+            resultados.atualizados++;
+            resultados.locais.push({
+              nome: local.nome,
+              place_id: local.place_id,
+              atualizado: true,
+            });
+          } else {
+            resultados.locais.push({
+              nome: local.nome,
+              place_id: local.place_id,
+              atualizado: false,
+              motivo: 'API não retornou photos/reviews/telefone/website',
+            });
+          }
+
+          // Delay entre atualizações
+          await new Promise(resolve => setTimeout(resolve, 300));
+        } catch (error: any) {
+          resultados.erros++;
+        }
+      }
+
+      return resultados;
+    } catch (error) {
+      throw new Error(`Erro ao atualizar locais: ${error.message}`);
     }
   }
 }

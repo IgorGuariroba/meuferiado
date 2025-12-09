@@ -14,7 +14,7 @@ export class BuscarLocaisDto {
 
   @ApiProperty({
     description: 'Nome da cidade onde buscar os locais',
-    example: 'Campos do Jordão',
+    example: 'Mogi das Cruzes',
   })
   @IsString()
   @IsNotEmpty()

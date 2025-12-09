@@ -212,8 +212,38 @@ export class GoogleMapsService {
   }
 
   /**
+   * Busca detalhes completos de um local usando Place Details API
+   */
+  async buscarDetalhesLocal(placeId: string) {
+    try {
+      if (!this.apiKey) {
+        throw new Error('Chave da API do Google Maps não configurada');
+      }
+
+      // O placeId já vem com o prefixo "places/" da API de busca
+      const fullPlaceId = placeId.startsWith('places/') ? placeId : `places/${placeId}`;
+
+      const response = await axios.get(
+        `https://places.googleapis.com/v1/${fullPlaceId}`,
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': this.apiKey,
+            'X-Goog-FieldMask': 'id,displayName,formattedAddress,location,rating,userRatingCount,types,priceLevel,photos,nationalPhoneNumber,internationalPhoneNumber,websiteUri,googleMapsUri,regularOpeningHours,currentOpeningHours,reviews,addressComponents,businessStatus',
+          },
+        }
+      );
+
+      return response.data;
+    } catch (error: any) {
+      return null;
+    }
+  }
+
+  /**
    * Busca locais em uma cidade usando Places API (New) Text Search
    * Usa a nova API: https://places.googleapis.com/v1/places:searchText
+   * Busca detalhes completos de cada local encontrado
    */
   async buscarLocaisPorCidade(query: string, city: string) {
     try {
@@ -244,11 +274,33 @@ export class GoogleMapsService {
         return [];
       }
 
-      // Mapear resultados da nova API para um formato mais simples
-      return response.data.places.map((place: any) => {
-        const location = place.location || {};
+      // Buscar detalhes completos de cada local (com limite para não exceder quota)
+      // Processar até 20 locais, mas com delay entre requisições para não exceder quota
+      const maxLocais = Math.min(response.data.places.length, 20);
 
-        return {
+      const locaisComDetalhes = [];
+      for (let i = 0; i < maxLocais; i++) {
+        const place = response.data.places[i];
+        const location = place.location || {};
+        const placeId = place.id?.replace('places/', '') || null;
+
+        // Buscar detalhes completos
+        let detalhes = null;
+        if (placeId) {
+          try {
+            detalhes = await this.buscarDetalhesLocal(place.id);
+          } catch (error: any) {
+            // Ignorar erro e continuar
+          }
+
+          // Delay de 200ms entre requisições para não exceder quota
+          if (i < maxLocais - 1) {
+            await new Promise(resolve => setTimeout(resolve, 200));
+          }
+        }
+
+        // Mapear dados básicos
+        const localBasico = {
           nome: place.displayName?.text || 'Sem nome',
           endereco: place.formattedAddress || '',
           coordenadas: {
@@ -258,10 +310,64 @@ export class GoogleMapsService {
           rating: place.rating || null,
           total_avaliacoes: place.userRatingCount || null,
           tipos: place.types || [],
-          place_id: place.id?.replace('places/', '') || null,
+          place_id: placeId,
           nivel_preco: place.priceLevel || null,
         };
-      });
+
+        // Se encontrou detalhes, adicionar informações extras
+        if (detalhes) {
+            // Mapear photos
+            const photosMapeadas = detalhes.photos?.map((photo: any) => ({
+              photo_reference: photo.name || null, // name contém o ID completo da foto (ex: "places/ChIJ.../photos/...")
+              width: photo.widthPx || null,
+              height: photo.heightPx || null,
+            })) || [];
+
+            // Mapear reviews
+            const reviewsMapeadas = detalhes.reviews?.map((review: any) => ({
+              autor: review.authorAttribution?.displayName || 'Anônimo',
+              rating: review.rating || null,
+              texto: review.text?.text || '',
+              data: review.publishTime || null,
+            })) || [];
+
+            const localComDetalhes = {
+              ...localBasico,
+              // Fotos
+              photos: photosMapeadas,
+              // Contato
+              formatted_phone_number: detalhes.nationalPhoneNumber || detalhes.internationalPhoneNumber || null,
+              website: detalhes.websiteUri || null,
+              url: detalhes.googleMapsUri || null,
+              // Horários
+              opening_hours: detalhes.regularOpeningHours?.weekdayDescriptions || detalhes.currentOpeningHours?.weekdayDescriptions || null,
+              current_opening_hours: detalhes.currentOpeningHours ? {
+                weekday_descriptions: detalhes.currentOpeningHours.weekdayDescriptions || [],
+                open_now: detalhes.currentOpeningHours.openNow || false,
+                periods: detalhes.currentOpeningHours.periods || [],
+              } : null,
+              open_now: detalhes.currentOpeningHours?.openNow || detalhes.regularOpeningHours?.openNow || false,
+              // Avaliações
+              reviews: reviewsMapeadas,
+              // Localização detalhada
+              formatted_address: detalhes.formattedAddress || place.formattedAddress || '',
+              address_components: detalhes.addressComponents?.map((comp: any) => ({
+                tipo: comp.types || [],
+                nome_longo: comp.longText || null,
+                nome_curto: comp.shortText || null,
+                linguagem: comp.languageCode || null,
+              })) || [],
+              // Status do negócio
+              business_status: detalhes.businessStatus || null,
+          };
+
+          locaisComDetalhes.push(localComDetalhes);
+        } else {
+          locaisComDetalhes.push(localBasico);
+        }
+      }
+
+      return locaisComDetalhes;
     } catch (error: any) {
       // Tratamento específico para erros da API
       if (error.response?.status === 403) {

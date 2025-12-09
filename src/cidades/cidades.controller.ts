@@ -4,6 +4,7 @@ import { CidadesService } from './services/cidades.service';
 import { BuscarCidadesDto } from './dto/buscar-cidades.dto';
 import { ListarCidadesDto } from './dto/listar-cidades.dto';
 import { BuscarLocaisDto } from './dto/buscar-locais.dto';
+import { BuscarLocaisSalvosDto } from './dto/buscar-locais-salvos.dto';
 import { TiposLocais } from './dto/tipos-locais.enum';
 
 @ApiTags('cidades')
@@ -300,7 +301,7 @@ export class CidadesController {
     required: true,
     type: String,
     description: 'Nome da cidade onde buscar os locais',
-    example: 'Campos do Jordão',
+    example: 'Mogi das Cruzes',
   })
   @ApiResponse({
     status: 200,
@@ -314,8 +315,8 @@ export class CidadesController {
           items: {
             type: 'object',
             properties: {
-              nome: { type: 'string', example: 'Chalé da Montanha' },
-              endereco: { type: 'string', example: 'Rua das Flores, 123, Campos do Jordão, SP' },
+              nome: { type: 'string', example: 'Chalé Conforto' },
+              endereco: { type: 'string', example: 'Estr. Manoel Ferreira, s/n - Manoel Ferreira, Mogi das Cruzes - SP, 08700-000, Brasil' },
               coordenadas: {
                 type: 'object',
                 properties: {
@@ -360,6 +361,239 @@ export class CidadesController {
         {
           success: false,
           message: error.message || 'Erro ao buscar locais',
+        },
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Get('locais-salvos')
+  @ApiOperation({
+    summary: 'Busca locais salvos no MongoDB por cidade',
+    description: 'Retorna todos os locais salvos no banco de dados para uma cidade específica. Busca apenas no MongoDB, não faz requisições à API do Google.'
+  })
+  @ApiQuery({
+    name: 'city',
+    required: true,
+    type: String,
+    description: 'Nome da cidade para buscar os locais salvos',
+    example: 'Mogi das Cruzes',
+  })
+  @ApiQuery({
+    name: 'estado',
+    required: false,
+    type: String,
+    description: 'Estado da cidade (opcional, ajuda a identificar a cidade corretamente)',
+    example: 'SP',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Número máximo de locais para retornar (padrão: 50, máximo: 100)',
+    example: 50,
+  })
+  @ApiQuery({
+    name: 'skip',
+    required: false,
+    type: Number,
+    description: 'Número de locais para pular na paginação (padrão: 0)',
+    example: 0,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Locais salvos encontrados com sucesso',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'object',
+          properties: {
+            locais: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', example: '69385d67345b652f14567483' },
+                  tipo: { type: 'string', example: 'chale' },
+                  nome: { type: 'string', example: 'Chalé Conforto' },
+                  descricao: { type: 'string', example: 'Local encontrado em Mogi das Cruzes' },
+                  endereco: { type: 'string', example: 'Estr. Manoel Ferreira, s/n - Manoel Ferreira, Mogi das Cruzes - SP' },
+                  formatted_address: { type: 'string', example: 'Estr. Manoel Ferreira, s/n - Manoel Ferreira, Mogi das Cruzes - SP, 08700-000, Brazil' },
+                  coordenadas: {
+                    type: 'object',
+                    properties: {
+                      lat: { type: 'number', example: -23.675528 },
+                      lon: { type: 'number', example: -46.094111 },
+                    },
+                  },
+                  preco: { type: 'number', example: 150 },
+                  avaliacao: { type: 'number', example: 4.8 },
+                  place_id: { type: 'string', example: 'ChIJ8_PWhVjmzZQRwVSFsm_xXiM' },
+                  photos: { type: 'array', items: { type: 'object' } },
+                  formatted_phone_number: { type: 'string', example: '(11) 94259-4723' },
+                  website: { type: 'string', example: 'https://chaleconforto.wixsite.com/chale' },
+                  url: { type: 'string', example: 'https://maps.google.com/?cid=...' },
+                  opening_hours: { type: 'array', items: { type: 'string' } },
+                  current_opening_hours: { type: 'object' },
+                  open_now: { type: 'boolean', example: false },
+                  reviews: { type: 'array', items: { type: 'object' } },
+                  address_components: { type: 'array', items: { type: 'object' } },
+                  business_status: { type: 'string', example: 'OPERATIONAL' },
+                  criadoEm: { type: 'string', example: '2025-12-09T17:33:27.000Z' },
+                  atualizadoEm: { type: 'string', example: '2025-12-09T18:01:21.000Z' },
+                },
+              },
+            },
+            total: { type: 'number', example: 2 },
+            cidade: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', example: '69385d67345b652f145674a5' },
+                nome: { type: 'string', example: 'Mogi das Cruzes' },
+                estado: { type: 'string', example: 'SP' },
+                pais: { type: 'string', example: 'BR' },
+              },
+            },
+            limit: { type: 'number', example: 50 },
+            skip: { type: 'number', example: 0 },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Parâmetros inválidos - city é obrigatório' })
+  @ApiResponse({ status: 500, description: 'Erro interno do servidor' })
+  async buscarLocaisSalvos(
+    @Query(new ValidationPipe({ whitelist: true, transform: true })) query: BuscarLocaisSalvosDto,
+  ) {
+    try {
+      if (!query.city) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'city é obrigatório',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      // Validar limit e skip
+      const limit = query.limit ? Math.min(Math.max(1, query.limit), 100) : 50;
+      const skip = query.skip ? Math.max(0, query.skip) : 0;
+
+      const resultado = await this.cidadesService.buscarLocaisSalvosPorCidade(
+        query.city,
+        query.estado,
+        limit,
+        skip,
+      );
+
+      return {
+        success: true,
+        data: resultado,
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message || 'Erro ao buscar locais salvos',
+        },
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Get('locais-salvos/atualizar')
+  @ApiOperation({
+    summary: 'Atualiza locais salvos que não têm detalhes completos',
+    description: 'Busca e atualiza locais existentes no MongoDB que não têm photos, reviews, telefone ou website. Útil para atualizar locais salvos antes da implementação dos detalhes completos.'
+  })
+  @ApiQuery({
+    name: 'city',
+    required: true,
+    type: String,
+    description: 'Nome da cidade',
+    example: 'Mogi das Cruzes',
+  })
+  @ApiQuery({
+    name: 'estado',
+    required: false,
+    type: String,
+    description: 'Estado da cidade',
+    example: 'SP',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Número máximo de locais para atualizar (padrão: 10)',
+    example: 10,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Locais atualizados com sucesso',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'object',
+          properties: {
+            atualizados: { type: 'number', example: 2 },
+            erros: { type: 'number', example: 0 },
+            locais: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  nome: { type: 'string' },
+                  place_id: { type: 'string' },
+                  atualizado: { type: 'boolean' },
+                },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Parâmetros inválidos' })
+  @ApiResponse({ status: 500, description: 'Erro interno do servidor' })
+  async atualizarLocaisSemDetalhes(
+    @Query('city') city: string,
+    @Query('estado') estado?: string,
+    @Query('limit') limit?: string,
+  ) {
+    try {
+      if (!city) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'city é obrigatório',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const limitNum = limit ? Math.min(Math.max(1, parseInt(limit, 10)), 20) : 10;
+
+      const resultado = await this.cidadesService.atualizarLocaisSemDetalhes(
+        city,
+        estado,
+        limitNum,
+      );
+
+      return {
+        success: true,
+        data: resultado,
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message || 'Erro ao atualizar locais',
         },
         error.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );

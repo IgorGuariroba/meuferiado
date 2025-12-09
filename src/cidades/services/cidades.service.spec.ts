@@ -4,6 +4,7 @@ import { Model } from 'mongoose';
 import { CidadesService } from './cidades.service';
 import { GoogleMapsService } from './google-maps.service';
 import { Cidade, CidadeDocument } from '../schemas/cidade.schema';
+import { Local, LocalDocument } from '../../locais/schemas/local.schema';
 
 describe('CidadesService', () => {
   let service: CidadesService;
@@ -18,10 +19,18 @@ describe('CidadesService', () => {
     countDocuments: jest.fn(),
   } as any;
 
+  const mockLocalModel = {
+    find: jest.fn(),
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+  } as any;
+
   const mockGoogleMapsService = {
     obterCidadeAtual: jest.fn(),
     obterCidadesVizinhas: jest.fn(),
     buscarPorEndereco: jest.fn(),
+    buscarLocaisPorCidade: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -31,6 +40,10 @@ describe('CidadesService', () => {
         {
           provide: getModelToken(Cidade.name),
           useValue: mockCidadeModel,
+        },
+        {
+          provide: getModelToken(Local.name),
+          useValue: mockLocalModel,
         },
         {
           provide: GoogleMapsService,
