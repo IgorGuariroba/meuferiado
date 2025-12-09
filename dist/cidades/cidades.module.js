@@ -14,6 +14,7 @@ const cidades_service_1 = require("./services/cidades.service");
 const google_maps_service_1 = require("./services/google-maps.service");
 const cidade_schema_1 = require("./schemas/cidade.schema");
 const local_schema_1 = require("../locais/schemas/local.schema");
+const termo_busca_schema_1 = require("./schemas/termo-busca.schema");
 let CidadesModule = class CidadesModule {
 };
 exports.CidadesModule = CidadesModule;
@@ -23,6 +24,7 @@ exports.CidadesModule = CidadesModule = __decorate([
             mongoose_1.MongooseModule.forFeature([
                 { name: cidade_schema_1.Cidade.name, schema: cidade_schema_1.CidadeSchema },
                 { name: local_schema_1.Local.name, schema: local_schema_1.LocalSchema },
+                { name: termo_busca_schema_1.TermoBusca.name, schema: termo_busca_schema_1.TermoBuscaSchema },
             ]),
         ],
         controllers: [cidades_controller_1.CidadesController],
