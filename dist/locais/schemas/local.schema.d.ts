@@ -71,6 +71,7 @@ export declare class Local {
     business_status?: string;
     criadoEm: Date;
     atualizadoEm: Date;
+    deletedAt?: Date;
 }
 export declare const LocalSchema: import("mongoose").Schema<Local, import("mongoose").Model<Local, any, any, any, Document<unknown, any, Local, any, import("mongoose").DefaultSchemaOptions> & Local & {
     _id: Types.ObjectId;
@@ -350,6 +351,15 @@ export declare const LocalSchema: import("mongoose").Schema<Local, import("mongo
         id: string;
     }>;
     atualizadoEm?: import("mongoose").SchemaDefinitionProperty<Date, Local, Document<unknown, {}, Local, {
+        id: string;
+    }, import("mongoose").ResolveSchemaOptions<import("mongoose").DefaultSchemaOptions>> & Omit<Local & {
+        _id: Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & {
+        id: string;
+    }>;
+    deletedAt?: import("mongoose").SchemaDefinitionProperty<Date, Local, Document<unknown, {}, Local, {
         id: string;
     }, import("mongoose").ResolveSchemaOptions<import("mongoose").DefaultSchemaOptions>> & Omit<Local & {
         _id: Types.ObjectId;

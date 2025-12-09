@@ -304,6 +304,7 @@ export class CidadesService {
       // Verificar se já existe pelo place_id
       const localExistente = await this.localModel.findOne({
         place_id: localData.place_id,
+        deletedAt: null, // Apenas locais não deletados
       });
 
       if (localExistente) {
@@ -424,9 +425,10 @@ export class CidadesService {
     } catch (error: any) {
       // Se erro for de duplicata (índice único), buscar o existente
       if (error.code === 11000) {
-        const existente = await this.localModel.findOne({
-          place_id: localData.place_id,
-        });
+          const existente = await this.localModel.findOne({
+            place_id: localData.place_id,
+            deletedAt: null, // Apenas locais não deletados
+          });
         return existente;
       }
       return null;
@@ -458,6 +460,7 @@ export class CidadesService {
 
       const locaisExistentes = await this.localModel.find({
         place_id: { $in: placeIds },
+        deletedAt: null, // Apenas locais não deletados
       }).select('place_id').lean().exec();
 
       const placeIdsExistentes = new Set(
@@ -559,9 +562,10 @@ export class CidadesService {
         };
       }
 
-      // Buscar locais relacionados à cidade
+      // Buscar locais relacionados à cidade (apenas não deletados)
       const queryLocais: any = {
         cidade: cidade._id,
+        deletedAt: null, // Apenas locais não deletados
       };
 
       const [locais, total] = await Promise.all([
@@ -636,9 +640,10 @@ export class CidadesService {
         throw new Error(`Cidade não encontrada: ${city}`);
       }
 
-      // Buscar locais que não têm detalhes completos
+      // Buscar locais que não têm detalhes completos (apenas não deletados)
       const queryLocais: any = {
         cidade: cidade._id,
+        deletedAt: null, // Apenas locais não deletados
         $or: [
           { photos: { $exists: false } },
           { photos: { $size: 0 } },
@@ -765,7 +770,7 @@ export class CidadesService {
   }
 
   /**
-   * Exclui locais salvos no MongoDB
+   * Exclui locais salvos no MongoDB (soft delete)
    */
   async excluirLocaisSalvos(city: string, estado?: string, placeId?: string) {
     try {
@@ -782,15 +787,24 @@ export class CidadesService {
         throw new Error(`Cidade não encontrada: ${city}`);
       }
 
-      // Se placeId foi fornecido, excluir apenas esse local
+      // Se placeId foi fornecido, fazer soft delete apenas desse local
       if (placeId) {
-        const local = await this.localModel.findOneAndDelete({
-          place_id: placeId,
-          cidade: cidade._id,
-        });
+        const local = await this.localModel.findOneAndUpdate(
+          {
+            place_id: placeId,
+            cidade: cidade._id,
+            deletedAt: null, // Apenas locais não deletados
+          },
+          {
+            $set: { deletedAt: new Date() },
+          },
+          {
+            new: true, // Retorna o documento atualizado
+          }
+        );
 
         if (!local) {
-          throw new Error(`Local com place_id ${placeId} não encontrado na cidade ${city}`);
+          throw new Error(`Local com place_id ${placeId} não encontrado na cidade ${city} ou já foi excluído`);
         }
 
         return {
@@ -798,17 +812,24 @@ export class CidadesService {
           local: {
             nome: local.nome,
             place_id: local.place_id,
+            deletedAt: local.deletedAt,
           },
         };
       }
 
-      // Excluir todos os locais da cidade
-      const resultado = await this.localModel.deleteMany({
-        cidade: cidade._id,
-      });
+      // Fazer soft delete de todos os locais da cidade (apenas os não deletados)
+      const resultado = await this.localModel.updateMany(
+        {
+          cidade: cidade._id,
+          deletedAt: null, // Apenas locais não deletados
+        },
+        {
+          $set: { deletedAt: new Date() },
+        }
+      );
 
       return {
-        excluidos: resultado.deletedCount || 0,
+        excluidos: resultado.modifiedCount || 0,
         cidade: {
           nome: cidade.nome,
           estado: cidade.estado,

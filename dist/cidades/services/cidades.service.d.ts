@@ -184,6 +184,7 @@ export declare class CidadesService {
         local: {
             nome: string;
             place_id: string;
+            deletedAt: Date;
         };
         cidade?: undefined;
     } | {

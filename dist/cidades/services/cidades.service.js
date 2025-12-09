@@ -229,6 +229,7 @@ let CidadesService = class CidadesService {
             }
             const localExistente = await this.localModel.findOne({
                 place_id: localData.place_id,
+                deletedAt: null,
             });
             if (localExistente) {
                 const temPhotosNovos = localData.photos?.length > 0;
@@ -329,6 +330,7 @@ let CidadesService = class CidadesService {
             if (error.code === 11000) {
                 const existente = await this.localModel.findOne({
                     place_id: localData.place_id,
+                    deletedAt: null,
                 });
                 return existente;
             }
@@ -349,6 +351,7 @@ let CidadesService = class CidadesService {
             }
             const locaisExistentes = await this.localModel.find({
                 place_id: { $in: placeIds },
+                deletedAt: null,
             }).select('place_id').lean().exec();
             const placeIdsExistentes = new Set(locaisExistentes.map(local => local.place_id));
             const locaisNovosBasicos = locaisBasicos.filter(local => !local.place_id || !placeIdsExistentes.has(local.place_id));
@@ -418,6 +421,7 @@ let CidadesService = class CidadesService {
             }
             const queryLocais = {
                 cidade: cidade._id,
+                deletedAt: null,
             };
             const [locais, total] = await Promise.all([
                 this.localModel
@@ -484,6 +488,7 @@ let CidadesService = class CidadesService {
             }
             const queryLocais = {
                 cidade: cidade._id,
+                deletedAt: null,
                 $or: [
                     { photos: { $exists: false } },
                     { photos: { $size: 0 } },
@@ -602,26 +607,35 @@ let CidadesService = class CidadesService {
                 throw new Error(`Cidade não encontrada: ${city}`);
             }
             if (placeId) {
-                const local = await this.localModel.findOneAndDelete({
+                const local = await this.localModel.findOneAndUpdate({
                     place_id: placeId,
                     cidade: cidade._id,
+                    deletedAt: null,
+                }, {
+                    $set: { deletedAt: new Date() },
+                }, {
+                    new: true,
                 });
                 if (!local) {
-                    throw new Error(`Local com place_id ${placeId} não encontrado na cidade ${city}`);
+                    throw new Error(`Local com place_id ${placeId} não encontrado na cidade ${city} ou já foi excluído`);
                 }
                 return {
                     excluidos: 1,
                     local: {
                         nome: local.nome,
                         place_id: local.place_id,
+                        deletedAt: local.deletedAt,
                     },
                 };
             }
-            const resultado = await this.localModel.deleteMany({
+            const resultado = await this.localModel.updateMany({
                 cidade: cidade._id,
+                deletedAt: null,
+            }, {
+                $set: { deletedAt: new Date() },
             });
             return {
-                excluidos: resultado.deletedCount || 0,
+                excluidos: resultado.modifiedCount || 0,
                 cidade: {
                     nome: cidade.nome,
                     estado: cidade.estado,

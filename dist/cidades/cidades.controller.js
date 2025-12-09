@@ -706,7 +706,7 @@ __decorate([
     }),
     (0, swagger_1.ApiResponse)({
         status: 200,
-        description: 'Locais excluídos com sucesso',
+        description: 'Locais excluídos com sucesso (soft delete)',
         schema: {
             type: 'object',
             properties: {
@@ -730,7 +730,7 @@ __decorate([
     }),
     (0, swagger_1.ApiResponse)({
         status: 200,
-        description: 'Local específico excluído com sucesso (quando place_id é fornecido)',
+        description: 'Local específico excluído com sucesso (soft delete quando place_id é fornecido)',
         schema: {
             type: 'object',
             properties: {
@@ -744,6 +744,7 @@ __decorate([
                             properties: {
                                 nome: { type: 'string', example: 'Chalé Conforto' },
                                 place_id: { type: 'string', example: 'ChIJ8_PWhVjmzZQRwVSFsm_xXiM' },
+                                deletedAt: { type: 'string', format: 'date-time', example: '2025-12-14T10:30:00.000Z' },
                             },
                         },
                     },

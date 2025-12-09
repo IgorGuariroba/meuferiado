@@ -193,6 +193,9 @@ export class Local {
 
   @Prop({ default: Date.now })
   atualizadoEm: Date;
+
+  @Prop({ required: false })
+  deletedAt?: Date;
 }
 
 export const LocalSchema = SchemaFactory.createForClass(Local);
@@ -208,6 +211,12 @@ LocalSchema.index({ place_id: 1 }, { unique: true, sparse: true });
 
 // Índice composto para busca por tipo + localização
 LocalSchema.index({ tipo: 1, localizacao: '2dsphere' });
+
+// Índice para soft delete (melhora performance das consultas)
+LocalSchema.index({ deletedAt: 1 });
+
+// Índice composto para busca por cidade + soft delete
+LocalSchema.index({ cidade: 1, deletedAt: 1 });
 
 // Atualizar atualizadoEm antes de salvar
 LocalSchema.pre('save', async function() {

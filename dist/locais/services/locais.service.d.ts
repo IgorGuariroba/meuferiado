@@ -92,6 +92,7 @@ export declare class LocaisService {
         business_status?: string;
         criadoEm: Date;
         atualizadoEm: Date;
+        deletedAt?: Date;
         _id: Types.ObjectId;
         $locals: Record<string, unknown>;
         $op: "save" | "validate" | "remove" | null;

@@ -206,6 +206,10 @@ __decorate([
     (0, mongoose_1.Prop)({ default: Date.now }),
     __metadata("design:type", Date)
 ], Local.prototype, "atualizadoEm", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ required: false }),
+    __metadata("design:type", Date)
+], Local.prototype, "deletedAt", void 0);
 exports.Local = Local = __decorate([
     (0, mongoose_1.Schema)({ timestamps: false })
 ], Local);
@@ -216,6 +220,8 @@ exports.LocalSchema.index({ preco: 1 });
 exports.LocalSchema.index({ cidade: 1 });
 exports.LocalSchema.index({ place_id: 1 }, { unique: true, sparse: true });
 exports.LocalSchema.index({ tipo: 1, localizacao: '2dsphere' });
+exports.LocalSchema.index({ deletedAt: 1 });
+exports.LocalSchema.index({ cidade: 1, deletedAt: 1 });
 exports.LocalSchema.pre('save', async function () {
     this.atualizadoEm = new Date();
 });

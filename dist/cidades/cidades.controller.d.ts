@@ -143,6 +143,7 @@ export declare class CidadesController {
             local: {
                 nome: string;
                 place_id: string;
+                deletedAt: Date;
             };
             cidade?: undefined;
         } | {
