@@ -337,7 +337,25 @@ let CidadesService = class CidadesService {
     }
     async buscarLocaisPorCidade(query, city) {
         try {
-            const locais = await this.googleMapsService.buscarLocaisPorCidade(query, city);
+            const locaisBasicos = await this.googleMapsService.buscarLocaisBasicosPorCidade(query, city);
+            if (locaisBasicos.length === 0) {
+                return [];
+            }
+            const placeIds = locaisBasicos
+                .map(local => local.place_id)
+                .filter(placeId => placeId);
+            if (placeIds.length === 0) {
+                return [];
+            }
+            const locaisExistentes = await this.localModel.find({
+                place_id: { $in: placeIds },
+            }).select('place_id').lean().exec();
+            const placeIdsExistentes = new Set(locaisExistentes.map(local => local.place_id));
+            const locaisNovosBasicos = locaisBasicos.filter(local => !local.place_id || !placeIdsExistentes.has(local.place_id));
+            if (locaisNovosBasicos.length === 0) {
+                return [];
+            }
+            const locais = await this.googleMapsService.buscarDetalhesLocais(locaisNovosBasicos);
             const locaisSalvos = await Promise.allSettled(locais.map(local => this.salvarLocalSeNaoExistir(local, query, city)));
             const salvosComSucesso = [];
             locaisSalvos.forEach((result) => {

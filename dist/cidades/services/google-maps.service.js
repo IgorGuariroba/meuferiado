@@ -209,6 +209,121 @@ let GoogleMapsService = class GoogleMapsService {
             return null;
         }
     }
+    async buscarLocaisBasicosPorCidade(query, city) {
+        try {
+            if (!this.apiKey) {
+                throw new Error('Chave da API do Google Maps não configurada. Configure GOOGLE_MAPS_API_KEY no arquivo .env');
+            }
+            const searchQuery = `${query} em ${city}`;
+            const response = await axios_1.default.post('https://places.googleapis.com/v1/places:searchText', {
+                textQuery: searchQuery,
+                languageCode: 'pt-BR',
+            }, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Goog-Api-Key': this.apiKey,
+                    'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.types,places.priceLevel',
+                },
+            });
+            if (!response.data.places?.length) {
+                return [];
+            }
+            const maxLocais = Math.min(response.data.places.length, 20);
+            const locaisBasicos = [];
+            for (let i = 0; i < maxLocais; i++) {
+                const place = response.data.places[i];
+                const location = place.location || {};
+                const placeId = place.id?.replace('places/', '') || null;
+                locaisBasicos.push({
+                    nome: place.displayName?.text || 'Sem nome',
+                    endereco: place.formattedAddress || '',
+                    coordenadas: {
+                        lat: location.latitude || null,
+                        lon: location.longitude || null,
+                    },
+                    rating: place.rating || null,
+                    total_avaliacoes: place.userRatingCount || null,
+                    tipos: place.types || [],
+                    place_id: placeId,
+                    nivel_preco: place.priceLevel || null,
+                    placeIdCompleto: place.id,
+                });
+            }
+            return locaisBasicos;
+        }
+        catch (error) {
+            if (error.response?.status === 403) {
+                throw new Error('Erro 403: Places API (New) não está habilitada ou a chave de API não tem permissão. ' +
+                    'Verifique no Google Cloud Console se a Places API (New) está habilitada e se a chave tem as permissões corretas. ' +
+                    'A nova API requer habilitar "Places API (New)" especificamente.');
+            }
+            if (error.response?.status === 400) {
+                const errorMessage = error.response.data?.error?.message || error.message;
+                throw new Error(`Erro na requisição: ${errorMessage}`);
+            }
+            throw new Error(`Erro ao buscar locais: ${error.message}`);
+        }
+    }
+    async buscarDetalhesLocais(locaisBasicos) {
+        const locaisComDetalhes = [];
+        for (let i = 0; i < locaisBasicos.length; i++) {
+            const localBasico = locaisBasicos[i];
+            if (!localBasico.placeIdCompleto) {
+                locaisComDetalhes.push(localBasico);
+                continue;
+            }
+            let detalhes = null;
+            try {
+                detalhes = await this.buscarDetalhesLocal(localBasico.placeIdCompleto);
+            }
+            catch (error) {
+            }
+            if (i < locaisBasicos.length - 1) {
+                await new Promise(resolve => setTimeout(resolve, 200));
+            }
+            if (detalhes) {
+                const photosMapeadas = detalhes.photos?.map((photo) => ({
+                    photo_reference: photo.name || null,
+                    width: photo.widthPx || null,
+                    height: photo.heightPx || null,
+                })) || [];
+                const reviewsMapeadas = detalhes.reviews?.map((review) => ({
+                    autor: review.authorAttribution?.displayName || 'Anônimo',
+                    rating: review.rating || null,
+                    texto: review.text?.text || '',
+                    data: review.publishTime || null,
+                })) || [];
+                const localComDetalhes = {
+                    ...localBasico,
+                    photos: photosMapeadas,
+                    formatted_phone_number: detalhes.nationalPhoneNumber || detalhes.internationalPhoneNumber || null,
+                    website: detalhes.websiteUri || null,
+                    url: detalhes.googleMapsUri || null,
+                    opening_hours: detalhes.regularOpeningHours?.weekdayDescriptions || detalhes.currentOpeningHours?.weekdayDescriptions || null,
+                    current_opening_hours: detalhes.currentOpeningHours ? {
+                        weekday_descriptions: detalhes.currentOpeningHours.weekdayDescriptions || [],
+                        open_now: detalhes.currentOpeningHours.openNow || false,
+                        periods: detalhes.currentOpeningHours.periods || [],
+                    } : null,
+                    open_now: detalhes.currentOpeningHours?.openNow || detalhes.regularOpeningHours?.openNow || false,
+                    reviews: reviewsMapeadas,
+                    formatted_address: detalhes.formattedAddress || localBasico.endereco || '',
+                    address_components: detalhes.addressComponents?.map((comp) => ({
+                        tipo: comp.types || [],
+                        nome_longo: comp.longText || null,
+                        nome_curto: comp.shortText || null,
+                        linguagem: comp.languageCode || null,
+                    })) || [],
+                    business_status: detalhes.businessStatus || null,
+                };
+                locaisComDetalhes.push(localComDetalhes);
+            }
+            else {
+                locaisComDetalhes.push(localBasico);
+            }
+        }
+        return locaisComDetalhes;
+    }
     async buscarLocaisPorCidade(query, city) {
         try {
             if (!this.apiKey) {

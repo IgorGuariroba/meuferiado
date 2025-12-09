@@ -32,6 +32,8 @@ export declare class GoogleMapsService {
     }>;
     obterCidadesVizinhas(lat: number, lon: number, raioKm: number): Promise<any[]>;
     buscarDetalhesLocal(placeId: string): Promise<any>;
+    buscarLocaisBasicosPorCidade(query: string, city: string): Promise<any[]>;
+    buscarDetalhesLocais(locaisBasicos: any[]): Promise<any[]>;
     buscarLocaisPorCidade(query: string, city: string): Promise<any[]>;
     gerarUrlFoto(photoReference: string, maxWidth?: number, maxHeight?: number): string;
 }

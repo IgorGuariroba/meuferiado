@@ -435,12 +435,48 @@ export class CidadesService {
 
   /**
    * Busca locais em uma cidade usando Places API e salva no MongoDB
+   * Exclui da resposta locais que já existem no MongoDB (mesmo place_id)
+   * Otimizado: filtra ANTES de buscar detalhes para economizar chamadas à API
    */
   async buscarLocaisPorCidade(query: string, city: string) {
     try {
-      const locais = await this.googleMapsService.buscarLocaisPorCidade(query, city);
+      // Primeiro, buscar apenas os dados básicos (sem detalhes completos)
+      const locaisBasicos = await this.googleMapsService.buscarLocaisBasicosPorCidade(query, city);
 
-      // Salvar cada local no MongoDB (apenas se não existir)
+      if (locaisBasicos.length === 0) {
+        return [];
+      }
+
+      // Buscar todos os place_ids que já existem no MongoDB
+      const placeIds = locaisBasicos
+        .map(local => local.place_id)
+        .filter(placeId => placeId); // Remove valores nulos/undefined
+
+      if (placeIds.length === 0) {
+        return [];
+      }
+
+      const locaisExistentes = await this.localModel.find({
+        place_id: { $in: placeIds },
+      }).select('place_id').lean().exec();
+
+      const placeIdsExistentes = new Set(
+        locaisExistentes.map(local => local.place_id)
+      );
+
+      // Filtrar apenas locais que ainda não existem no MongoDB
+      const locaisNovosBasicos = locaisBasicos.filter(local =>
+        !local.place_id || !placeIdsExistentes.has(local.place_id)
+      );
+
+      if (locaisNovosBasicos.length === 0) {
+        return [];
+      }
+
+      // Agora buscar detalhes completos APENAS dos locais novos
+      const locais = await this.googleMapsService.buscarDetalhesLocais(locaisNovosBasicos);
+
+      // Salvar apenas os novos locais no MongoDB
       const locaisSalvos = await Promise.allSettled(
         locais.map(local =>
           this.salvarLocalSeNaoExistir(local, query, city),
@@ -456,7 +492,7 @@ export class CidadesService {
         }
       });
 
-      // Formatar locais para o mesmo formato da rota de locais salvos
+      // Formatar apenas os novos locais para o mesmo formato da rota de locais salvos
       const locaisFormatados = locais.map(local => {
         // Buscar o local salvo correspondente para pegar o ID e outros campos do MongoDB
         const localSalvo = salvosComSucesso.find(l => l.place_id === local.place_id);
