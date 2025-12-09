@@ -4,6 +4,7 @@ import { CidadesService } from './services/cidades.service';
 import { BuscarCidadesDto } from './dto/buscar-cidades.dto';
 import { ListarCidadesDto } from './dto/listar-cidades.dto';
 import { BuscarLocaisDto } from './dto/buscar-locais.dto';
+import { TiposLocais } from './dto/tipos-locais.enum';
 
 @ApiTags('cidades')
 @Controller('api/cidades')
@@ -290,9 +291,9 @@ export class CidadesController {
   @ApiQuery({
     name: 'query',
     required: true,
-    type: String,
-    description: 'Termo de busca para o tipo de local (ex: chalés, pousadas, restaurantes)',
-    example: 'chalés',
+    enum: TiposLocais,
+    description: 'Termo de busca para o tipo de local',
+    example: TiposLocais.CHALE,
   })
   @ApiQuery({
     name: 'city',

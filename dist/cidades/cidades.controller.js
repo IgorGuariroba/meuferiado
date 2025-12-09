@@ -18,6 +18,7 @@ const swagger_1 = require("@nestjs/swagger");
 const cidades_service_1 = require("./services/cidades.service");
 const listar_cidades_dto_1 = require("./dto/listar-cidades.dto");
 const buscar_locais_dto_1 = require("./dto/buscar-locais.dto");
+const tipos_locais_enum_1 = require("./dto/tipos-locais.enum");
 let CidadesController = class CidadesController {
     constructor(cidadesService) {
         this.cidadesService = cidadesService;
@@ -293,9 +294,9 @@ __decorate([
     (0, swagger_1.ApiQuery)({
         name: 'query',
         required: true,
-        type: String,
-        description: 'Termo de busca para o tipo de local (ex: chalés, pousadas, restaurantes)',
-        example: 'chalés',
+        enum: tipos_locais_enum_1.TiposLocais,
+        description: 'Termo de busca para o tipo de local',
+        example: tipos_locais_enum_1.TiposLocais.CHALE,
     }),
     (0, swagger_1.ApiQuery)({
         name: 'city',
