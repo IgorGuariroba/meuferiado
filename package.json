@@ -13,7 +13,8 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:cov": "jest --coverage",
-    "down": "./scripts/down.sh",
+    "services:up": "./scripts/up.sh",
+    "services:down": "./scripts/down.sh",
     "down:volumes": "./scripts/down.sh -v",
     "service:down": "ts-node src/cli.ts service:down"
   },
