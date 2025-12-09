@@ -1,6 +1,6 @@
-# 🗺️ Script de Cidades Vizinhas
+# 🗺️ API de Cidades Vizinhas e Locais de Hospedagem
 
-Script Node.js para encontrar sua cidade atual e cidades vizinhas usando coordenadas geográficas e **Google Maps Geocoding API**, com armazenamento permanente no **MongoDB** para reduzir chamadas à API.
+API REST desenvolvida com NestJS para encontrar cidade atual e cidades vizinhas usando coordenadas geográficas ou nome de cidade/endereço. Também gerencia locais de hospedagem (Casa de praia, Chalé, Pousada, etc.) com filtros por tipo, preço e localização. Utiliza **Google Maps Geocoding API** para geocodificação e **MongoDB** para armazenamento.
 
 ## ✨ Por que Geocoding API?
 
@@ -34,34 +34,50 @@ MONGODB_URI=mongodb://admin:admin123@localhost:27017/cidades?authSource=admin
 docker-compose up -d
 ```
 
-O MongoDB é **opcional** - o script funciona sem ele, mas com MongoDB você:
+O MongoDB é **opcional** - a API funciona sem ele, mas com MongoDB você:
 - ✅ Reduz drasticamente chamadas à API (economia de custos)
 - ✅ Consultas muito mais rápidas para cidades já conhecidas
 - ✅ Funciona parcialmente offline
 
-## 🎯 Uso
+## 🚀 Como Iniciar
 
+### Modo Desenvolvimento (com hot-reload)
 ```bash
-node cidades_vizinhas.js <latitude> <longitude> <raio_km>
+npm run dev
 ```
 
-### Exemplos
-
+### Modo Produção
 ```bash
-# Mogi das Cruzes, raio de 30km
-node cidades_vizinhas.js -23.5178 -46.1894 30
+# Compilar o projeto
+npm run build
 
-# São Paulo, raio de 50km
-node cidades_vizinhas.js -23.5505 -46.6333 50
-
-# Rio de Janeiro, raio de 30km
-node cidades_vizinhas.js -22.9068 -43.1729 30
+# Iniciar servidor
+npm start
 ```
 
-Ou usando npm:
-```bash
-npm start -- -23.5178 -46.1894 30
-```
+A API estará disponível em:
+- **API**: http://localhost:3000/api
+- **Swagger/OpenAPI Docs**: http://localhost:3000/docs
+
+## 🎯 Uso da API
+
+A API possui dois grupos principais de endpoints:
+
+### 📍 Cidades
+- Buscar cidade atual por coordenadas
+- Buscar cidades vizinhas
+- Buscar cidade por nome/endereço
+
+### 🏨 Locais de Hospedagem
+- Criar local de hospedagem
+- Listar locais com filtros (tipo, preço, localização)
+- Buscar local por ID
+- Atualizar local
+- Deletar local
+
+### Documentação Interativa
+
+Acesse http://localhost:3000/docs para ver a documentação completa do Swagger com todos os endpoints disponíveis e testá-los diretamente no navegador.
 
 ## 🔑 Como Obter a Chave API
 
@@ -79,54 +95,53 @@ npm start -- -23.5178 -46.1894 30
    GOOGLE_MAPS_API_KEY=sua_chave_aqui
    ```
 
-## 📊 Saída
+## 📊 Respostas da API
 
-O script exibe:
-- **Cidade Atual**: Nome, estado e país
-- **Cidades Vizinhas**: Lista de cidades dentro do raio especificado, ordenadas por distância
+A API retorna dados em formato JSON com a seguinte estrutura:
 
-## 📝 Exemplo de Saída
-
+```json
+{
+  "success": true,
+  "data": {
+    // Dados da resposta
+  }
+}
 ```
-🌍 BUSCA DE CIDADES VIZINHAS
 
-📍 Coordenadas: -23.5178, -46.1894
-📏 Raio: 30 km
+### Exemplo de Resposta - Cidades Vizinhas
 
-🔍 Buscando cidade atual...
-
-════════════════════════════════════════════════════════════
-🏙️  CIDADE ATUAL
-════════════════════════════════════════════════════════════
-Cidade: Mogi das Cruzes
-Estado: SP
-País: BR
-Endereço: R. Sen. Feijó, 69 - Centro, Mogi das Cruzes - SP, 08710-230, Brasil
-
-════════════════════════════════════════════════════════════
-🗺️  CIDADES VIZINHAS
-════════════════════════════════════════════════════════════
-🔍 Buscando cidades próximas...
-
-✅ 8 cidade(s) encontrada(s):
-
-1. Mogi das Cruzes
-   Estado: SP
-   País: BR
-   Distância: 9.02 km
-   Coordenadas: -23.4367189, -46.1894
-
-2. Biritiba Mirim
-   Estado: SP
-   País: BR
-   Distância: 9.02 km
-   Coordenadas: -23.5178, -46.1009739
-...
+```json
+{
+  "success": true,
+  "data": {
+    "cidadeAtual": {
+      "nome": "Mogi das Cruzes",
+      "estado": "SP",
+      "pais": "BR",
+      "coordenadas": {
+        "lat": -23.5178,
+        "lon": -46.1894
+      }
+    },
+    "cidadesVizinhas": [
+      {
+        "nome": "Biritiba Mirim",
+        "estado": "SP",
+        "pais": "BR",
+        "distancia": 9.02,
+        "coordenadas": {
+          "lat": -23.5178,
+          "lon": -46.1009739
+        }
+      }
+    ]
+  }
+}
 ```
 
 ## 🆘 Problemas Comuns
 
-### "Cannot find module '@googlemaps/google-maps-services-js'"
+### "Cannot find module '@nestjs/core'"
 ```bash
 npm install
 ```
@@ -138,10 +153,19 @@ Verifique:
 3. A chave tem permissão para usar Geocoding API
 
 ### "⚠️ MongoDB não disponível"
-O script funciona sem MongoDB, mas recomenda-se usá-lo para melhor performance:
+A API funciona sem MongoDB, mas recomenda-se usá-lo para melhor performance:
 1. Verifique se o Docker está rodando: `docker ps`
 2. Inicie o MongoDB: `docker-compose up -d`
 3. Verifique a string de conexão no `.env`: `MONGODB_URI`
+
+### "Port 3000 is already in use"
+```bash
+# Parar processos na porta 3000
+npm run service:down
+
+# Ou manualmente
+lsof -ti:3000 | xargs kill -9
+```
 
 ## 💰 Custos
 
@@ -150,7 +174,7 @@ O script funciona sem MongoDB, mas recomenda-se usá-lo para melhor performance:
 
 ## 🔧 Como Funciona
 
-O script usa uma estratégia híbrida **MongoDB + Google Maps API**:
+A API usa uma estratégia híbrida **MongoDB + Google Maps API**:
 
 ### Fluxo de Busca Otimizado:
 
@@ -208,6 +232,28 @@ docker exec -it cidades-mongodb mongosh -u admin -p admin123 --authenticationDat
 docker-compose down -v
 ```
 
+## 🛠️ Scripts Disponíveis
+
+```bash
+# Desenvolvimento (com hot-reload)
+npm run dev
+
+# Compilar para produção
+npm run build
+
+# Iniciar em produção
+npm start
+
+# Testes
+npm test
+npm run test:watch
+npm run test:cov
+
+# Parar serviços (NestJS + Docker)
+npm run service:down
+npm run down:volumes
+```
+
 ---
 
-**Desenvolvido com Node.js, MongoDB e Google Maps Geocoding API** 🚀
+**Desenvolvido com NestJS, MongoDB e Google Maps Geocoding API** 🚀

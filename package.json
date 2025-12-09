@@ -1,10 +1,11 @@
 {
   "name": "cidades-vizinhas",
   "version": "1.0.0",
-  "description": "Script para encontrar cidade atual e cidades vizinhas usando Google Maps API",
-  "main": "cidades_vizinhas.js",
+  "description": "API para encontrar cidade atual e cidades vizinhas usando Google Maps API",
+  "main": "dist/main.js",
   "scripts": {
-    "start": "node cidades_vizinhas.js",
+    "start": "node dist/main.js",
+    "dev": "nest start --watch",
     "start:api": "nest start",
     "start:dev": "nest start --watch",
     "start:prod": "node dist/main",
