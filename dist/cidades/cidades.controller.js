@@ -17,6 +17,7 @@ const common_1 = require("@nestjs/common");
 const swagger_1 = require("@nestjs/swagger");
 const cidades_service_1 = require("./services/cidades.service");
 const listar_cidades_dto_1 = require("./dto/listar-cidades.dto");
+const buscar_locais_dto_1 = require("./dto/buscar-locais.dto");
 let CidadesController = class CidadesController {
     constructor(cidadesService) {
         this.cidadesService = cidadesService;
@@ -134,6 +135,27 @@ let CidadesController = class CidadesController {
                 success: false,
                 message: error.message || 'Erro ao listar cidades',
             }, common_1.HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+    async buscarLocais(query) {
+        try {
+            if (!query.query || !query.city) {
+                throw new common_1.HttpException({
+                    success: false,
+                    message: 'query e city são obrigatórios',
+                }, common_1.HttpStatus.BAD_REQUEST);
+            }
+            const locais = await this.cidadesService.buscarLocaisPorCidade(query.query, query.city);
+            return {
+                success: true,
+                data: locais,
+            };
+        }
+        catch (error) {
+            throw new common_1.HttpException({
+                success: false,
+                message: error.message || 'Erro ao buscar locais',
+            }, error.status || common_1.HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 };
@@ -262,6 +284,64 @@ __decorate([
     __metadata("design:paramtypes", [listar_cidades_dto_1.ListarCidadesDto]),
     __metadata("design:returntype", Promise)
 ], CidadesController.prototype, "listarCidades", null);
+__decorate([
+    (0, common_1.Get)('locais'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Busca locais em uma cidade',
+        description: 'Busca locais (chalés, pousadas, restaurantes, etc.) em uma cidade específica usando Google Places API'
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: 'query',
+        required: true,
+        type: String,
+        description: 'Termo de busca para o tipo de local (ex: chalés, pousadas, restaurantes)',
+        example: 'chalés',
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: 'city',
+        required: true,
+        type: String,
+        description: 'Nome da cidade onde buscar os locais',
+        example: 'Campos do Jordão',
+    }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'Locais encontrados com sucesso',
+        schema: {
+            type: 'object',
+            properties: {
+                success: { type: 'boolean', example: true },
+                data: {
+                    type: 'array',
+                    items: {
+                        type: 'object',
+                        properties: {
+                            nome: { type: 'string', example: 'Chalé da Montanha' },
+                            endereco: { type: 'string', example: 'Rua das Flores, 123, Campos do Jordão, SP' },
+                            coordenadas: {
+                                type: 'object',
+                                properties: {
+                                    lat: { type: 'number', example: -22.7394 },
+                                    lon: { type: 'number', example: -45.5914 },
+                                },
+                            },
+                            rating: { type: 'number', example: 4.5 },
+                            total_avaliacoes: { type: 'number', example: 120 },
+                            tipos: { type: 'array', items: { type: 'string' }, example: ['lodging', 'point_of_interest'] },
+                            place_id: { type: 'string', example: 'ChIJ...' },
+                        },
+                    },
+                },
+            },
+        },
+    }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Parâmetros inválidos - query e city são obrigatórios' }),
+    (0, swagger_1.ApiResponse)({ status: 500, description: 'Erro interno do servidor' }),
+    __param(0, (0, common_1.Query)(new common_1.ValidationPipe({ whitelist: true, transform: true }))),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [buscar_locais_dto_1.BuscarLocaisDto]),
+    __metadata("design:returntype", Promise)
+], CidadesController.prototype, "buscarLocais", null);
 exports.CidadesController = CidadesController = __decorate([
     (0, swagger_1.ApiTags)('cidades'),
     (0, common_1.Controller)('api/cidades'),

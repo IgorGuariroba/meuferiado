@@ -3,6 +3,7 @@ import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
 import { CidadesService } from './services/cidades.service';
 import { BuscarCidadesDto } from './dto/buscar-cidades.dto';
 import { ListarCidadesDto } from './dto/listar-cidades.dto';
+import { BuscarLocaisDto } from './dto/buscar-locais.dto';
 
 @ApiTags('cidades')
 @Controller('api/cidades')
@@ -277,6 +278,89 @@ export class CidadesController {
           message: error.message || 'Erro ao listar cidades',
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Get('locais')
+  @ApiOperation({
+    summary: 'Busca locais em uma cidade',
+    description: 'Busca locais (chalés, pousadas, restaurantes, etc.) em uma cidade específica usando Google Places API'
+  })
+  @ApiQuery({
+    name: 'query',
+    required: true,
+    type: String,
+    description: 'Termo de busca para o tipo de local (ex: chalés, pousadas, restaurantes)',
+    example: 'chalés',
+  })
+  @ApiQuery({
+    name: 'city',
+    required: true,
+    type: String,
+    description: 'Nome da cidade onde buscar os locais',
+    example: 'Campos do Jordão',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Locais encontrados com sucesso',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              nome: { type: 'string', example: 'Chalé da Montanha' },
+              endereco: { type: 'string', example: 'Rua das Flores, 123, Campos do Jordão, SP' },
+              coordenadas: {
+                type: 'object',
+                properties: {
+                  lat: { type: 'number', example: -22.7394 },
+                  lon: { type: 'number', example: -45.5914 },
+                },
+              },
+              rating: { type: 'number', example: 4.5 },
+              total_avaliacoes: { type: 'number', example: 120 },
+              tipos: { type: 'array', items: { type: 'string' }, example: ['lodging', 'point_of_interest'] },
+              place_id: { type: 'string', example: 'ChIJ...' },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Parâmetros inválidos - query e city são obrigatórios' })
+  @ApiResponse({ status: 500, description: 'Erro interno do servidor' })
+  async buscarLocais(
+    @Query(new ValidationPipe({ whitelist: true, transform: true })) query: BuscarLocaisDto,
+  ) {
+    try {
+      if (!query.query || !query.city) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'query e city são obrigatórios',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const locais = await this.cidadesService.buscarLocaisPorCidade(query.query, query.city);
+
+      return {
+        success: true,
+        data: locais,
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message || 'Erro ao buscar locais',
+        },
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }

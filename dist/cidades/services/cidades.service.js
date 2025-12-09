@@ -221,6 +221,15 @@ let CidadesService = class CidadesService {
             throw new Error(`Erro ao listar cidades: ${error.message}`);
         }
     }
+    async buscarLocaisPorCidade(query, city) {
+        try {
+            const locais = await this.googleMapsService.buscarLocaisPorCidade(query, city);
+            return locais;
+        }
+        catch (error) {
+            throw new Error(`Erro ao buscar locais: ${error.message}`);
+        }
+    }
 };
 exports.CidadesService = CidadesService;
 exports.CidadesService = CidadesService = __decorate([

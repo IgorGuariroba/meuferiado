@@ -8,11 +8,15 @@ var __decorate = (this && this.__decorate) || function (decorators, target, key,
 var __metadata = (this && this.__metadata) || function (k, v) {
     if (typeof Reflect === "object" && typeof Reflect.metadata === "function") return Reflect.metadata(k, v);
 };
+var __importDefault = (this && this.__importDefault) || function (mod) {
+    return (mod && mod.__esModule) ? mod : { "default": mod };
+};
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.GoogleMapsService = void 0;
 const common_1 = require("@nestjs/common");
 const config_1 = require("@nestjs/config");
 const google_maps_services_js_1 = require("@googlemaps/google-maps-services-js");
+const axios_1 = __importDefault(require("axios"));
 const calcular_distancia_util_1 = require("../../common/utils/calcular-distancia.util");
 let GoogleMapsService = class GoogleMapsService {
     constructor(configService) {
@@ -184,6 +188,55 @@ let GoogleMapsService = class GoogleMapsService {
         }
         catch (error) {
             throw new Error(`Erro ao buscar cidades vizinhas: ${error.message}`);
+        }
+    }
+    async buscarLocaisPorCidade(query, city) {
+        try {
+            if (!this.apiKey) {
+                throw new Error('Chave da API do Google Maps não configurada. Configure GOOGLE_MAPS_API_KEY no arquivo .env');
+            }
+            const searchQuery = `${query} em ${city}`;
+            const response = await axios_1.default.post('https://places.googleapis.com/v1/places:searchText', {
+                textQuery: searchQuery,
+                languageCode: 'pt-BR',
+            }, {
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-Goog-Api-Key': this.apiKey,
+                    'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.types,places.priceLevel',
+                },
+            });
+            if (!response.data.places?.length) {
+                return [];
+            }
+            return response.data.places.map((place) => {
+                const location = place.location || {};
+                return {
+                    nome: place.displayName?.text || 'Sem nome',
+                    endereco: place.formattedAddress || '',
+                    coordenadas: {
+                        lat: location.latitude || null,
+                        lon: location.longitude || null,
+                    },
+                    rating: place.rating || null,
+                    total_avaliacoes: place.userRatingCount || null,
+                    tipos: place.types || [],
+                    place_id: place.id?.replace('places/', '') || null,
+                    nivel_preco: place.priceLevel || null,
+                };
+            });
+        }
+        catch (error) {
+            if (error.response?.status === 403) {
+                throw new Error('Erro 403: Places API (New) não está habilitada ou a chave de API não tem permissão. ' +
+                    'Verifique no Google Cloud Console se a Places API (New) está habilitada e se a chave tem as permissões corretas. ' +
+                    'A nova API requer habilitar "Places API (New)" especificamente.');
+            }
+            if (error.response?.status === 400) {
+                const errorMessage = error.response.data?.error?.message || error.message;
+                throw new Error(`Erro na requisição: ${errorMessage}`);
+            }
+            throw new Error(`Erro ao buscar locais: ${error.message}`);
         }
     }
 };

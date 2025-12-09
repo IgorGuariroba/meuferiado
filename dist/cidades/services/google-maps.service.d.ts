@@ -31,4 +31,5 @@ export declare class GoogleMapsService {
         };
     }>;
     obterCidadesVizinhas(lat: number, lon: number, raioKm: number): Promise<any[]>;
+    buscarLocaisPorCidade(query: string, city: string): Promise<any>;
 }

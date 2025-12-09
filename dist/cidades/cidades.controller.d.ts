@@ -1,5 +1,6 @@
 import { CidadesService } from './services/cidades.service';
 import { ListarCidadesDto } from './dto/listar-cidades.dto';
+import { BuscarLocaisDto } from './dto/buscar-locais.dto';
 export declare class CidadesController {
     private readonly cidadesService;
     constructor(cidadesService: CidadesService);
@@ -32,5 +33,9 @@ export declare class CidadesController {
             limit: number;
             skip: number;
         };
+    }>;
+    buscarLocais(query: BuscarLocaisDto): Promise<{
+        success: boolean;
+        data: any;
     }>;
 }

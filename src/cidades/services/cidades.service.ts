@@ -285,5 +285,17 @@ export class CidadesService {
       throw new Error(`Erro ao listar cidades: ${error.message}`);
     }
   }
+
+  /**
+   * Busca locais em uma cidade usando Places API
+   */
+  async buscarLocaisPorCidade(query: string, city: string) {
+    try {
+      const locais = await this.googleMapsService.buscarLocaisPorCidade(query, city);
+      return locais;
+    } catch (error) {
+      throw new Error(`Erro ao buscar locais: ${error.message}`);
+    }
+  }
 }
 

@@ -1,6 +1,7 @@
 import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { Client } from '@googlemaps/google-maps-services-js';
+import axios from 'axios';
 import { calcularDistancia } from '../../common/utils/calcular-distancia.util';
 
 @Injectable()
@@ -207,6 +208,74 @@ export class GoogleMapsService {
       return cidades.slice(0, 20); // Limitar a 20 resultados
     } catch (error) {
       throw new Error(`Erro ao buscar cidades vizinhas: ${error.message}`);
+    }
+  }
+
+  /**
+   * Busca locais em uma cidade usando Places API (New) Text Search
+   * Usa a nova API: https://places.googleapis.com/v1/places:searchText
+   */
+  async buscarLocaisPorCidade(query: string, city: string) {
+    try {
+      if (!this.apiKey) {
+        throw new Error('Chave da API do Google Maps não configurada. Configure GOOGLE_MAPS_API_KEY no arquivo .env');
+      }
+
+      // Combinar query e cidade na busca
+      const searchQuery = `${query} em ${city}`;
+
+      // Usar a nova Places API (New) via POST
+      const response = await axios.post(
+        'https://places.googleapis.com/v1/places:searchText',
+        {
+          textQuery: searchQuery,
+          languageCode: 'pt-BR',
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': this.apiKey,
+            'X-Goog-FieldMask': 'places.id,places.displayName,places.formattedAddress,places.location,places.rating,places.userRatingCount,places.types,places.priceLevel',
+          },
+        }
+      );
+
+      if (!response.data.places?.length) {
+        return [];
+      }
+
+      // Mapear resultados da nova API para um formato mais simples
+      return response.data.places.map((place: any) => {
+        const location = place.location || {};
+
+        return {
+          nome: place.displayName?.text || 'Sem nome',
+          endereco: place.formattedAddress || '',
+          coordenadas: {
+            lat: location.latitude || null,
+            lon: location.longitude || null,
+          },
+          rating: place.rating || null,
+          total_avaliacoes: place.userRatingCount || null,
+          tipos: place.types || [],
+          place_id: place.id?.replace('places/', '') || null,
+          nivel_preco: place.priceLevel || null,
+        };
+      });
+    } catch (error: any) {
+      // Tratamento específico para erros da API
+      if (error.response?.status === 403) {
+        throw new Error(
+          'Erro 403: Places API (New) não está habilitada ou a chave de API não tem permissão. ' +
+          'Verifique no Google Cloud Console se a Places API (New) está habilitada e se a chave tem as permissões corretas. ' +
+          'A nova API requer habilitar "Places API (New)" especificamente.'
+        );
+      }
+      if (error.response?.status === 400) {
+        const errorMessage = error.response.data?.error?.message || error.message;
+        throw new Error(`Erro na requisição: ${errorMessage}`);
+      }
+      throw new Error(`Erro ao buscar locais: ${error.message}`);
     }
   }
 }

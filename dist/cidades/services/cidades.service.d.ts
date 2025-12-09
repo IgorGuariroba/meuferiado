@@ -79,4 +79,5 @@ export declare class CidadesService {
         limit: number;
         skip: number;
     }>;
+    buscarLocaisPorCidade(query: string, city: string): Promise<any>;
 }
