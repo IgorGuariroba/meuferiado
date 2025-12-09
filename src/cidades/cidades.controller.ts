@@ -1,10 +1,11 @@
-import { Controller, Get, Query, HttpException, HttpStatus, ValidationPipe } from '@nestjs/common';
-import { ApiTags, ApiOperation, ApiResponse, ApiQuery } from '@nestjs/swagger';
+import { Controller, Get, Post, Delete, Query, Body, HttpException, HttpStatus, ValidationPipe } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse, ApiQuery, ApiBody } from '@nestjs/swagger';
 import { CidadesService } from './services/cidades.service';
 import { BuscarCidadesDto } from './dto/buscar-cidades.dto';
 import { ListarCidadesDto } from './dto/listar-cidades.dto';
 import { BuscarLocaisDto } from './dto/buscar-locais.dto';
 import { BuscarLocaisSalvosDto } from './dto/buscar-locais-salvos.dto';
+import { CriarTermoBuscaDto } from './dto/criar-termo-busca.dto';
 import { TiposLocais } from './dto/tipos-locais.enum';
 
 @ApiTags('cidades')
@@ -596,6 +597,227 @@ export class CidadesController {
           message: error.message || 'Erro ao atualizar locais',
         },
         error.status || HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Delete('locais-salvos')
+  @ApiOperation({
+    summary: 'Exclui locais salvos no MongoDB',
+    description: 'Exclui locais salvos de uma cidade. Pode excluir todos os locais da cidade ou um local específico por place_id.'
+  })
+  @ApiQuery({
+    name: 'city',
+    required: true,
+    type: String,
+    description: 'Nome da cidade',
+    example: 'Mogi das Cruzes',
+  })
+  @ApiQuery({
+    name: 'estado',
+    required: false,
+    type: String,
+    description: 'Estado da cidade (opcional, ajuda a identificar a cidade corretamente)',
+    example: 'SP',
+  })
+  @ApiQuery({
+    name: 'place_id',
+    required: false,
+    type: String,
+    description: 'Place ID do local específico a ser excluído (opcional). Se não fornecido, exclui todos os locais da cidade.',
+    example: 'ChIJ8_PWhVjmzZQRwVSFsm_xXiM',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Locais excluídos com sucesso',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'object',
+          properties: {
+            excluidos: { type: 'number', example: 2 },
+            cidade: {
+              type: 'object',
+              properties: {
+                nome: { type: 'string', example: 'Mogi das Cruzes' },
+                estado: { type: 'string', example: 'SP' },
+                pais: { type: 'string', example: 'BR' },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Local específico excluído com sucesso (quando place_id é fornecido)',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'object',
+          properties: {
+            excluidos: { type: 'number', example: 1 },
+            local: {
+              type: 'object',
+              properties: {
+                nome: { type: 'string', example: 'Chalé Conforto' },
+                place_id: { type: 'string', example: 'ChIJ8_PWhVjmzZQRwVSFsm_xXiM' },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Parâmetros inválidos - city é obrigatório' })
+  @ApiResponse({ status: 404, description: 'Cidade ou local não encontrado' })
+  @ApiResponse({ status: 500, description: 'Erro interno do servidor' })
+  async excluirLocaisSalvos(
+    @Query('city') city: string,
+    @Query('estado') estado?: string,
+    @Query('place_id') placeId?: string,
+  ) {
+    try {
+      if (!city) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'city é obrigatório',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const resultado = await this.cidadesService.excluirLocaisSalvos(
+        city,
+        estado,
+        placeId,
+      );
+
+      return {
+        success: true,
+        data: resultado,
+      };
+    } catch (error) {
+      const statusCode = error.message.includes('não encontrado')
+        ? HttpStatus.NOT_FOUND
+        : HttpStatus.INTERNAL_SERVER_ERROR;
+
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message || 'Erro ao excluir locais',
+        },
+        statusCode,
+      );
+    }
+  }
+
+  @Get('foto')
+  @ApiOperation({
+    summary: 'Gera URL para visualizar foto do Google Places',
+    description: 'Retorna a URL direta para visualizar uma foto usando o photo_reference retornado pela API.'
+  })
+  @ApiQuery({
+    name: 'photo_reference',
+    required: true,
+    type: String,
+    description: 'O photo_reference completo retornado pela API (ex: "places/ChIJ.../photos/...")',
+    example: 'places/ChIJ8_PWhVjmzZQRwVSFsm_xXiM/photos/AZLasHotBrxY5xDRjB3wsmCCzCTOX1Oh74u_PBt9QiUV8MCEOqQZRgAMI40ehGofV5emAJ6IDt7mR-YH3-7dc13jp-p-wOi6MQmczqb-p-mKLYl1JUHx23qGqR4I3uNCUpgaN3KoOiuu8gij2zO3W6raTB7y6A1W_JvrEfflF4-StlSEsIg5dQysyJhvLSFcn7JiuhPch-BR6RIbiSigvXYBVbBFxlfrc4Ob5Xqn3w8XVFwzAcRDyWChby9-C5PNIAwuMToecR1457_vyZHU0S4au60_YgneTdBR7TIM2yfyaMG-zWVJwrEV9JudY5Z2vzNdaEyv38eGvijXpj71CDV_t_wbC8SdmTJtOwMY7LEyT5s5eE15xGlur5plfENkEuLVp92wtlbDNsIAOcflAi_RssAFq2CFuGPBxdiC_GwUjxc',
+  })
+  @ApiQuery({
+    name: 'maxWidth',
+    required: false,
+    type: Number,
+    description: 'Largura máxima da imagem em pixels (padrão: 800)',
+    example: 800,
+  })
+  @ApiQuery({
+    name: 'maxHeight',
+    required: false,
+    type: Number,
+    description: 'Altura máxima da imagem em pixels (padrão: 600)',
+    example: 600,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'URL da foto gerada com sucesso',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'object',
+          properties: {
+            url: {
+              type: 'string',
+              example: 'https://places.googleapis.com/v1/places/ChIJ8_PWhVjmzZQRwVSFsm_xXiM/photos/AZLasHotBrxY5xDRjB3wsmCCzCTOX1Oh74u_PBt9QiUV8MCEOqQZRgAMI40ehGofV5emAJ6IDt7mR-YH3-7dc13jp-p-wOi6MQmczqb-p-mKLYl1JUHx23qGqR4I3uNCUpgaN3KoOiuu8gij2zO3W6raTB7y6A1W_JvrEfflF4-StlSEsIg5dQysyJhvLSFcn7JiuhPch-BR6RIbiSigvXYBVbBFxlfrc4Ob5Xqn3w8XVFwzAcRDyWChby9-C5PNIAwuMToecR1457_vyZHU0S4au60_YgneTdBR7TIM2yfyaMG-zWVJwrEV9JudY5Z2vzNdaEyv38eGvijXpj71CDV_t_wbC8SdmTJtOwMY7LEyT5s5eE15xGlur5plfENkEuLVp92wtlbDNsIAOcflAi_RssAFq2CFuGPBxdiC_GwUjxc/media?maxHeightPx=600&maxWidthPx=800&key=YOUR_API_KEY'
+            },
+            photo_reference: { type: 'string' },
+            maxWidth: { type: 'number', example: 800 },
+            maxHeight: { type: 'number', example: 600 },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'photo_reference é obrigatório' })
+  @ApiResponse({ status: 500, description: 'Erro interno do servidor' })
+  async gerarUrlFoto(
+    @Query('photo_reference') photoReference: string,
+    @Query('maxWidth') maxWidth?: string,
+    @Query('maxHeight') maxHeight?: string,
+  ) {
+    try {
+      if (!photoReference) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'photo_reference é obrigatório',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const width = maxWidth ? parseInt(maxWidth, 10) : 800;
+      const height = maxHeight ? parseInt(maxHeight, 10) : 600;
+
+      const url = this.cidadesService.gerarUrlFoto(photoReference, width, height);
+
+      if (!url) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'Não foi possível gerar a URL da foto. Verifique se o photo_reference está no formato correto.',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      return {
+        success: true,
+        data: {
+          url,
+          photo_reference: photoReference,
+          maxWidth: width,
+          maxHeight: height,
+        },
+      };
+    } catch (error) {
+      if (error instanceof HttpException) {
+        throw error;
+      }
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message || 'Erro ao gerar URL da foto',
+        },
+        HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }

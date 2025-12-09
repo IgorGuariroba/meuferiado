@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model, Types } from 'mongoose';
 import { Cidade, CidadeDocument } from '../schemas/cidade.schema';
 import { Local, LocalDocument } from '../../locais/schemas/local.schema';
+import { TermoBusca, TermoBuscaDocument } from '../schemas/termo-busca.schema';
 import { GoogleMapsService } from './google-maps.service';
 import { calcularDistancia } from '../../common/utils/calcular-distancia.util';
 import { mapearTipoLocal, estimarPrecoPorPriceLevel } from '../utils/mapear-tipo-local.util';
@@ -12,6 +13,7 @@ export class CidadesService {
   constructor(
     @InjectModel(Cidade.name) private cidadeModel: Model<CidadeDocument>,
     @InjectModel(Local.name) private localModel: Model<LocalDocument>,
+    @InjectModel(TermoBusca.name) private termoBuscaModel: Model<TermoBuscaDocument>,
     private googleMapsService: GoogleMapsService,
   ) {}
 
@@ -723,6 +725,153 @@ export class CidadesService {
       return resultados;
     } catch (error) {
       throw new Error(`Erro ao atualizar locais: ${error.message}`);
+    }
+  }
+
+  /**
+   * Exclui locais salvos no MongoDB
+   */
+  async excluirLocaisSalvos(city: string, estado?: string, placeId?: string) {
+    try {
+      // Buscar cidade
+      const queryCidade: any = {
+        nome: { $regex: new RegExp(`^${city}$`, 'i') },
+      };
+      if (estado) {
+        queryCidade.estado = { $regex: new RegExp(`^${estado}$`, 'i') };
+      }
+
+      const cidade = await this.cidadeModel.findOne(queryCidade);
+      if (!cidade) {
+        throw new Error(`Cidade não encontrada: ${city}`);
+      }
+
+      // Se placeId foi fornecido, excluir apenas esse local
+      if (placeId) {
+        const local = await this.localModel.findOneAndDelete({
+          place_id: placeId,
+          cidade: cidade._id,
+        });
+
+        if (!local) {
+          throw new Error(`Local com place_id ${placeId} não encontrado na cidade ${city}`);
+        }
+
+        return {
+          excluidos: 1,
+          local: {
+            nome: local.nome,
+            place_id: local.place_id,
+          },
+        };
+      }
+
+      // Excluir todos os locais da cidade
+      const resultado = await this.localModel.deleteMany({
+        cidade: cidade._id,
+      });
+
+      return {
+        excluidos: resultado.deletedCount || 0,
+        cidade: {
+          nome: cidade.nome,
+          estado: cidade.estado,
+          pais: cidade.pais,
+        },
+      };
+    } catch (error) {
+      throw new Error(`Erro ao excluir locais: ${error.message}`);
+    }
+  }
+
+  /**
+   * Gera URL para visualizar foto do Google Places
+   */
+  gerarUrlFoto(photoReference: string, maxWidth: number = 800, maxHeight: number = 600): string {
+    return this.googleMapsService.gerarUrlFoto(photoReference, maxWidth, maxHeight);
+  }
+
+  /**
+   * Lista todos os termos de busca
+   */
+  async listarTermosBusca(ativo?: boolean) {
+    try {
+      const query: any = {};
+      if (ativo !== undefined) {
+        query.ativo = ativo;
+      }
+
+      const termos = await this.termoBuscaModel
+        .find(query)
+        .sort({ termo: 1 })
+        .lean()
+        .exec();
+
+      return {
+        termos,
+        total: termos.length,
+      };
+    } catch (error) {
+      throw new Error(`Erro ao listar termos de busca: ${error.message}`);
+    }
+  }
+
+  /**
+   * Adiciona um novo termo de busca
+   */
+  async criarTermoBusca(termo: string, descricao?: string, ativo: boolean = true) {
+    try {
+      const termoNormalizado = termo.toLowerCase().trim();
+
+      // Verificar se já existe
+      const existente = await this.termoBuscaModel.findOne({
+        termo: termoNormalizado,
+      });
+
+      if (existente) {
+        throw new Error(`Termo "${termo}" já existe`);
+      }
+
+      const novoTermo = new this.termoBuscaModel({
+        termo: termoNormalizado,
+        descricao,
+        ativo,
+      });
+
+      const termoSalvo = await novoTermo.save();
+      return termoSalvo;
+    } catch (error) {
+      if (error.message.includes('já existe')) {
+        throw error;
+      }
+      throw new Error(`Erro ao criar termo de busca: ${error.message}`);
+    }
+  }
+
+  /**
+   * Exclui um termo de busca
+   */
+  async excluirTermoBusca(termo: string) {
+    try {
+      const termoNormalizado = termo.toLowerCase().trim();
+
+      const resultado = await this.termoBuscaModel.findOneAndDelete({
+        termo: termoNormalizado,
+      });
+
+      if (!resultado) {
+        throw new Error(`Termo "${termo}" não encontrado`);
+      }
+
+      return {
+        termo: resultado.termo,
+        excluido: true,
+      };
+    } catch (error) {
+      if (error.message.includes('não encontrado')) {
+        throw error;
+      }
+      throw new Error(`Erro ao excluir termo de busca: ${error.message}`);
     }
   }
 }

@@ -384,5 +384,34 @@ export class GoogleMapsService {
       throw new Error(`Erro ao buscar locais: ${error.message}`);
     }
   }
+
+  /**
+   * Gera URL direta para visualizar uma foto do Google Places
+   * @param photoReference - O photo_reference completo (ex: "places/ChIJ.../photos/...")
+   * @param maxWidth - Largura máxima da imagem (padrão: 800)
+   * @param maxHeight - Altura máxima da imagem (padrão: 600)
+   */
+  gerarUrlFoto(photoReference: string, maxWidth: number = 800, maxHeight: number = 600): string {
+    if (!photoReference || !this.apiKey) {
+      return '';
+    }
+
+    // Para a nova Places API, o photo_reference já vem no formato "places/.../photos/..."
+    // Precisamos extrair o ID da foto e construir a URL
+    // Formato: https://places.googleapis.com/v1/places/PLACE_ID/photos/PHOTO_ID/media?maxHeightPx=600&maxWidthPx=800&key=API_KEY
+
+    // O photo_reference já contém o caminho completo, então precisamos extrair as partes
+    const match = photoReference.match(/places\/([^\/]+)\/photos\/(.+)/);
+
+    if (match) {
+      const placeId = match[1];
+      const photoId = match[2];
+
+      return `https://places.googleapis.com/v1/places/${placeId}/photos/${photoId}/media?maxHeightPx=${maxHeight}&maxWidthPx=${maxWidth}&key=${this.apiKey}`;
+    }
+
+    // Se não conseguir extrair, retorna vazio
+    return '';
+  }
 }
 
