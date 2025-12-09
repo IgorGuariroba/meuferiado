@@ -174,7 +174,7 @@ export class CidadesController {
       let cidadeAtualPorEndereco: any = null;
 
       if (endereco) {
-        // Buscar coordenadas por endereço
+        // Buscar coordenadas por endereço (agora verifica MongoDB primeiro)
         const resultadoEndereco = await this.cidadesService.buscarCoordenadasPorEndereco(endereco);
         latFinal = resultadoEndereco.coordenadas.lat;
         lonFinal = resultadoEndereco.coordenadas.lon;
@@ -184,7 +184,7 @@ export class CidadesController {
           pais: resultadoEndereco.pais,
           endereco_completo: resultadoEndereco.endereco_completo,
           coordenadas: resultadoEndereco.coordenadas,
-          doMongoDB: false, // Vem da API
+          doMongoDB: resultadoEndereco.doMongoDB || false,
         };
       } else {
         latFinal = lat as number;
@@ -819,6 +819,109 @@ export class CidadesController {
           message: error.message || 'Erro ao gerar URL da foto',
         },
         HttpStatus.INTERNAL_SERVER_ERROR,
+      );
+    }
+  }
+
+  @Get('locais-salvos/excluidos')
+  @ApiOperation({
+    summary: 'Lista locais excluídos (soft delete) por cidade',
+    description: 'Retorna locais que foram excluídos via soft delete, filtrados por cidade. Não retorna locais ativos.'
+  })
+  @ApiQuery({
+    name: 'city',
+    required: true,
+    type: String,
+    description: 'Nome da cidade para buscar os locais excluídos',
+    example: 'Mogi das Cruzes',
+  })
+  @ApiQuery({
+    name: 'estado',
+    required: false,
+    type: String,
+    description: 'Estado da cidade (opcional, ajuda a identificar a cidade corretamente)',
+    example: 'SP',
+  })
+  @ApiQuery({
+    name: 'limit',
+    required: false,
+    type: Number,
+    description: 'Número máximo de locais para retornar (padrão: 50, máximo: 100)',
+    example: 50,
+  })
+  @ApiQuery({
+    name: 'skip',
+    required: false,
+    type: Number,
+    description: 'Número de locais para pular na paginação (padrão: 0)',
+    example: 0,
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Locais excluídos encontrados com sucesso',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'object',
+          properties: {
+            locais: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  id: { type: 'string', example: '6931f0bc22c8f8dd43deb153' },
+                  nome: { type: 'string', example: 'Chalé Conforto' },
+                  endereco: { type: 'string', example: 'Estr. Manoel Ferreira, s/n - Manoel Ferreira, Mogi das Cruzes - SP' },
+                  place_id: { type: 'string', example: 'ChIJ8_PWhVjmzZQRwVSFsm_xXiM' },
+                  deletedAt: { type: 'string', format: 'date-time', example: '2025-12-14T10:30:00.000Z' },
+                  criadoEm: { type: 'string', format: 'date-time' },
+                  atualizadoEm: { type: 'string', format: 'date-time' },
+                },
+              },
+            },
+            total: { type: 'number', example: 2 },
+            cidade: {
+              type: 'object',
+              properties: {
+                id: { type: 'string', example: '6931f0bc22c8f8dd43deb153' },
+                nome: { type: 'string', example: 'Mogi das Cruzes' },
+                estado: { type: 'string', example: 'SP' },
+                pais: { type: 'string', example: 'BR' },
+              },
+            },
+            limit: { type: 'number', example: 50 },
+            skip: { type: 'number', example: 0 },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Parâmetros inválidos - city é obrigatório' })
+  @ApiResponse({ status: 500, description: 'Erro interno do servidor' })
+  async buscarLocaisExcluidos(
+    @Query(new ValidationPipe({ whitelist: true, transform: true })) query: BuscarLocaisSalvosDto,
+  ) {
+    try {
+      const resultado = await this.cidadesService.buscarLocaisExcluidos(
+        query.city,
+        query.estado,
+        query.limit,
+        query.skip,
+      );
+
+      return {
+        success: true,
+        data: resultado,
+      };
+    } catch (error) {
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message || 'Erro ao buscar locais excluídos',
+        },
+        error.status || HttpStatus.INTERNAL_SERVER_ERROR,
       );
     }
   }

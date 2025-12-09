@@ -131,10 +131,60 @@ let CidadesService = class CidadesService {
         }
         return resultados;
     }
-    async buscarCoordenadasPorEndereco(endereco) {
+    async buscarCoordenadasPorEndereco(endereco, coordenadasValidadas, raioValidacaoKm = 5) {
         try {
+            const partes = endereco.split(',').map(p => p.trim());
+            const nomeCidade = partes[0];
+            const estado = partes.length > 1 ? partes[1] : null;
+            const queryCidade = {
+                nome: { $regex: new RegExp(`^${nomeCidade}$`, 'i') },
+            };
+            if (estado && estado.length <= 3) {
+                queryCidade.estado = { $regex: new RegExp(`^${estado}$`, 'i') };
+            }
+            const cidadeMongo = await this.cidadeModel.findOne(queryCidade);
+            if (cidadeMongo && cidadeMongo.localizacao) {
+                const [lon, lat] = cidadeMongo.localizacao.coordinates;
+                if (coordenadasValidadas) {
+                    const distancia = (0, calcular_distancia_util_1.calcularDistancia)(coordenadasValidadas.lat, coordenadasValidadas.lon, lat, lon);
+                    if (distancia > raioValidacaoKm) {
+                    }
+                    else {
+                        return {
+                            cidade: cidadeMongo.nome,
+                            estado: cidadeMongo.estado || '',
+                            pais: cidadeMongo.pais || 'BR',
+                            endereco_completo: `${cidadeMongo.nome}${cidadeMongo.estado ? ', ' + cidadeMongo.estado : ''}${cidadeMongo.pais ? ', ' + cidadeMongo.pais : ''}`,
+                            coordenadas: {
+                                lat,
+                                lon,
+                            },
+                            doMongoDB: true,
+                        };
+                    }
+                }
+                else {
+                    return {
+                        cidade: cidadeMongo.nome,
+                        estado: cidadeMongo.estado || '',
+                        pais: cidadeMongo.pais || 'BR',
+                        endereco_completo: `${cidadeMongo.nome}${cidadeMongo.estado ? ', ' + cidadeMongo.estado : ''}${cidadeMongo.pais ? ', ' + cidadeMongo.pais : ''}`,
+                        coordenadas: {
+                            lat,
+                            lon,
+                        },
+                        doMongoDB: true,
+                    };
+                }
+            }
             const resultado = await this.googleMapsService.buscarPorEndereco(endereco);
-            return resultado;
+            if (resultado.cidade && resultado.cidade !== 'Não encontrada' && resultado.coordenadas) {
+                await this.salvarCidade(resultado.cidade, resultado.estado || '', resultado.pais || 'BR', resultado.coordenadas.lat, resultado.coordenadas.lon);
+            }
+            return {
+                ...resultado,
+                doMongoDB: false,
+            };
         }
         catch (error) {
             throw new Error(`Erro ao buscar endereço: ${error.message}`);
@@ -154,17 +204,49 @@ let CidadesService = class CidadesService {
     async obterCidadesVizinhas(lat, lon, raioKm, limit, skip) {
         const cidadesMongo = await this.buscarCidadesProximas(lat, lon, raioKm);
         if (cidadesMongo.length >= 3) {
-            const total = cidadesMongo.length;
-            const skipValue = skip || 0;
-            const limitValue = limit || 20;
-            const cidadesPaginadas = cidadesMongo.slice(skipValue, skipValue + limitValue);
-            return {
-                cidades: cidadesPaginadas,
-                total,
-                limit: limitValue,
-                skip: skipValue,
-                doMongoDB: true
-            };
+            const cidadeMaisDistante = cidadesMongo[cidadesMongo.length - 1];
+            const distanciaMaxima = cidadeMaisDistante?.distancia_km || 0;
+            const threshold = raioKm * 0.8;
+            if (distanciaMaxima < threshold) {
+                const cidadesApi = await this.googleMapsService.obterCidadesVizinhas(lat, lon, raioKm);
+                if (cidadesApi.length > 0) {
+                    await this.salvarCidades(cidadesApi);
+                }
+                const todasCidades = [...cidadesMongo, ...cidadesApi];
+                const cidadesUnicas = new Map();
+                for (const cidade of todasCidades) {
+                    const key = `${cidade.nome.toLowerCase()}_${cidade.estado}_${cidade.pais}`;
+                    if (!cidadesUnicas.has(key)) {
+                        cidadesUnicas.set(key, cidade);
+                    }
+                }
+                const resultado = Array.from(cidadesUnicas.values())
+                    .sort((a, b) => a.distancia_km - b.distancia_km);
+                const total = resultado.length;
+                const skipValue = skip || 0;
+                const limitValue = limit || 20;
+                const cidadesPaginadas = resultado.slice(skipValue, skipValue + limitValue);
+                return {
+                    cidades: cidadesPaginadas,
+                    total,
+                    limit: limitValue,
+                    skip: skipValue,
+                    doMongoDB: false,
+                };
+            }
+            else {
+                const total = cidadesMongo.length;
+                const skipValue = skip || 0;
+                const limitValue = limit || 20;
+                const cidadesPaginadas = cidadesMongo.slice(skipValue, skipValue + limitValue);
+                return {
+                    cidades: cidadesPaginadas,
+                    total,
+                    limit: limitValue,
+                    skip: skipValue,
+                    doMongoDB: true
+                };
+            }
         }
         const cidadesApi = await this.googleMapsService.obterCidadesVizinhas(lat, lon, raioKm);
         if (cidadesApi.length > 0) {
@@ -649,6 +731,85 @@ let CidadesService = class CidadesService {
     }
     gerarUrlFoto(photoReference, maxWidth = 800, maxHeight = 600) {
         return this.googleMapsService.gerarUrlFoto(photoReference, maxWidth, maxHeight);
+    }
+    async buscarLocaisExcluidos(city, estado, limit = 50, skip = 0) {
+        try {
+            const limitFinal = Math.min(Math.max(1, limit || 50), 100);
+            const skipFinal = Math.max(0, skip || 0);
+            const queryCidade = {
+                nome: { $regex: new RegExp(`^${city}$`, 'i') },
+            };
+            if (estado) {
+                queryCidade.estado = { $regex: new RegExp(`^${estado}$`, 'i') };
+            }
+            const cidade = await this.cidadeModel.findOne(queryCidade);
+            if (!cidade) {
+                return {
+                    locais: [],
+                    total: 0,
+                    cidade: null,
+                    limit: limitFinal,
+                    skip: skipFinal,
+                };
+            }
+            const queryLocais = {
+                cidade: cidade._id,
+                deletedAt: { $ne: null },
+            };
+            const [locais, total] = await Promise.all([
+                this.localModel
+                    .find(queryLocais)
+                    .limit(limitFinal)
+                    .skip(skipFinal)
+                    .sort({ deletedAt: -1 })
+                    .lean()
+                    .exec(),
+                this.localModel.countDocuments(queryLocais),
+            ]);
+            const locaisFormatados = locais.map((local) => ({
+                id: local._id.toString(),
+                tipo: local.tipo,
+                nome: local.nome,
+                descricao: local.descricao || `Local encontrado em ${city}`,
+                endereco: local.endereco,
+                formatted_address: local.formatted_address || local.endereco,
+                coordenadas: {
+                    lat: local.localizacao?.coordinates?.[1] || null,
+                    lon: local.localizacao?.coordinates?.[0] || null,
+                },
+                preco: local.preco || 0,
+                avaliacao: local.avaliacao,
+                place_id: local.place_id,
+                photos: local.photos || [],
+                formatted_phone_number: local.formatted_phone_number,
+                website: local.website,
+                url: local.url,
+                opening_hours: local.opening_hours || [],
+                current_opening_hours: local.current_opening_hours,
+                open_now: local.open_now || false,
+                reviews: local.reviews || [],
+                address_components: local.address_components || [],
+                business_status: local.business_status,
+                deletedAt: local.deletedAt,
+                criadoEm: local.criadoEm,
+                atualizadoEm: local.atualizadoEm,
+            }));
+            return {
+                locais: locaisFormatados,
+                total,
+                cidade: {
+                    id: cidade._id.toString(),
+                    nome: cidade.nome,
+                    estado: cidade.estado,
+                    pais: cidade.pais,
+                },
+                limit: limitFinal,
+                skip: skipFinal,
+            };
+        }
+        catch (error) {
+            throw new Error(`Erro ao buscar locais excluídos: ${error.message}`);
+        }
     }
     async listarTermosBusca(ativo) {
         try {

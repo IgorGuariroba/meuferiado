@@ -35,7 +35,11 @@ export declare class CidadesService {
         lat: number;
         lon: number;
     }>): Promise<any[]>;
-    buscarCoordenadasPorEndereco(endereco: string): Promise<{
+    buscarCoordenadasPorEndereco(endereco: string, coordenadasValidadas?: {
+        lat: number;
+        lon: number;
+    }, raioValidacaoKm?: number): Promise<{
+        doMongoDB: boolean;
         cidade: string;
         estado: string;
         pais: string;
@@ -197,6 +201,45 @@ export declare class CidadesService {
         local?: undefined;
     }>;
     gerarUrlFoto(photoReference: string, maxWidth?: number, maxHeight?: number): string;
+    buscarLocaisExcluidos(city: string, estado?: string, limit?: number, skip?: number): Promise<{
+        locais: {
+            id: any;
+            tipo: any;
+            nome: any;
+            descricao: any;
+            endereco: any;
+            formatted_address: any;
+            coordenadas: {
+                lat: any;
+                lon: any;
+            };
+            preco: any;
+            avaliacao: any;
+            place_id: any;
+            photos: any;
+            formatted_phone_number: any;
+            website: any;
+            url: any;
+            opening_hours: any;
+            current_opening_hours: any;
+            open_now: any;
+            reviews: any;
+            address_components: any;
+            business_status: any;
+            deletedAt: any;
+            criadoEm: any;
+            atualizadoEm: any;
+        }[];
+        total: number;
+        cidade: {
+            id: string;
+            nome: string;
+            estado: string;
+            pais: string;
+        };
+        limit: number;
+        skip: number;
+    }>;
     listarTermosBusca(ativo?: boolean): Promise<{
         termos: (TermoBusca & import("mongoose").Document<Types.ObjectId, any, any, Record<string, any>, {}> & Required<{
             _id: Types.ObjectId;

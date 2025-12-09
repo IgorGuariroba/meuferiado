@@ -52,14 +52,22 @@ export class CidadesService {
 
   /**
    * Busca cidades próximas dentro de um raio (em km)
+   * Usa consulta geográfica do MongoDB ($geoWithin com $centerSphere)
+   * que considera o raio especificado para buscar cidades dentro de um círculo
+   * @param lat - Latitude do ponto central
+   * @param lon - Longitude do ponto central
+   * @param raioKm - Raio em quilômetros para buscar cidades
+   * @returns Array de cidades ordenadas por distância
    */
   async buscarCidadesProximas(lat: number, lon: number, raioKm: number) {
     try {
+      // $geoWithin com $centerSphere busca todas as cidades dentro de um círculo
+      // O raio é convertido de km para radianos (raio da Terra ~6378.1 km)
       const cidades = await this.cidadeModel.find({
         localizacao: {
           $geoWithin: {
             $centerSphere: [
-              [lon, lat], // [longitude, latitude]
+              [lon, lat], // [longitude, latitude] - ordem do MongoDB
               raioKm / 6378.1, // Converter km para radianos (raio da Terra ~6378.1 km)
             ],
           },
@@ -154,11 +162,97 @@ export class CidadesService {
 
   /**
    * Busca coordenadas por endereço/nome de cidade
+   * Tenta buscar no MongoDB primeiro para evitar chamadas desnecessárias à API
+   * @param endereco - Endereço ou nome da cidade (ex: "São Paulo, SP")
+   * @param coordenadasValidadas - Opcional: coordenadas para validar se a cidade encontrada está próxima
+   * @param raioValidacaoKm - Raio em km para validar proximidade (padrão: 5km)
    */
-  async buscarCoordenadasPorEndereco(endereco: string) {
+  async buscarCoordenadasPorEndereco(
+    endereco: string,
+    coordenadasValidadas?: { lat: number; lon: number },
+    raioValidacaoKm: number = 5,
+  ) {
     try {
+      // Tentar extrair nome da cidade e estado do endereço
+      // Formatos comuns: "São Paulo, SP", "São Paulo, SP, Brasil", "São Paulo"
+      const partes = endereco.split(',').map(p => p.trim());
+      const nomeCidade = partes[0];
+      const estado = partes.length > 1 ? partes[1] : null;
+
+      // Tentar buscar no MongoDB primeiro
+      const queryCidade: any = {
+        nome: { $regex: new RegExp(`^${nomeCidade}$`, 'i') },
+      };
+
+      if (estado && estado.length <= 3) {
+        // Se parece ser um estado (2-3 letras), adicionar à query
+        queryCidade.estado = { $regex: new RegExp(`^${estado}$`, 'i') };
+      }
+
+      const cidadeMongo = await this.cidadeModel.findOne(queryCidade);
+
+      if (cidadeMongo && cidadeMongo.localizacao) {
+        const [lon, lat] = cidadeMongo.localizacao.coordinates;
+
+        // Se foram fornecidas coordenadas para validação, verificar se a cidade está próxima
+        if (coordenadasValidadas) {
+          const distancia = calcularDistancia(
+            coordenadasValidadas.lat,
+            coordenadasValidadas.lon,
+            lat,
+            lon,
+          );
+
+          // Se a cidade encontrada está muito longe das coordenadas fornecidas, não usar do MongoDB
+          if (distancia > raioValidacaoKm) {
+            // Continuar para buscar na API
+          } else {
+            return {
+              cidade: cidadeMongo.nome,
+              estado: cidadeMongo.estado || '',
+              pais: cidadeMongo.pais || 'BR',
+              endereco_completo: `${cidadeMongo.nome}${cidadeMongo.estado ? ', ' + cidadeMongo.estado : ''}${cidadeMongo.pais ? ', ' + cidadeMongo.pais : ''}`,
+              coordenadas: {
+                lat,
+                lon,
+              },
+              doMongoDB: true,
+            };
+          }
+        } else {
+          // Se não há coordenadas para validar, usar a cidade do MongoDB
+          return {
+            cidade: cidadeMongo.nome,
+            estado: cidadeMongo.estado || '',
+            pais: cidadeMongo.pais || 'BR',
+            endereco_completo: `${cidadeMongo.nome}${cidadeMongo.estado ? ', ' + cidadeMongo.estado : ''}${cidadeMongo.pais ? ', ' + cidadeMongo.pais : ''}`,
+            coordenadas: {
+              lat,
+              lon,
+            },
+            doMongoDB: true,
+          };
+        }
+      }
+
+      // Se não encontrou no MongoDB, consultar API
       const resultado = await this.googleMapsService.buscarPorEndereco(endereco);
-      return resultado;
+
+      // Salvar no MongoDB se encontrou cidade válida
+      if (resultado.cidade && resultado.cidade !== 'Não encontrada' && resultado.coordenadas) {
+        await this.salvarCidade(
+          resultado.cidade,
+          resultado.estado || '',
+          resultado.pais || 'BR',
+          resultado.coordenadas.lat,
+          resultado.coordenadas.lon,
+        );
+      }
+
+      return {
+        ...resultado,
+        doMongoDB: false,
+      };
     } catch (error) {
       throw new Error(`Erro ao buscar endereço: ${error.message}`);
     }
@@ -193,25 +287,83 @@ export class CidadesService {
 
   /**
    * Obtém cidades vizinhas (busca MongoDB primeiro, depois API)
+   * O raio (raioKm) é usado para buscar cidades dentro de um círculo geográfico
+   * a partir das coordenadas fornecidas (lat, lon)
+   * @param lat - Latitude do ponto central
+   * @param lon - Longitude do ponto central
+   * @param raioKm - Raio em quilômetros para buscar cidades vizinhas
+   * @param limit - Limite de resultados para paginação
+   * @param skip - Número de resultados para pular na paginação
    */
   async obterCidadesVizinhas(lat: number, lon: number, raioKm: number, limit?: number, skip?: number) {
-    // Tentar buscar no MongoDB primeiro
-    // Se encontrar menos de 3 cidades, ainda consulta API para garantir completude
+    // Tentar buscar no MongoDB primeiro usando o raio especificado
+    // O método buscarCidadesProximas usa $geoWithin com $centerSphere que considera o raioKm
     const cidadesMongo = await this.buscarCidadesProximas(lat, lon, raioKm);
-    if (cidadesMongo.length >= 3) {
-      // Aplicar paginação
-      const total = cidadesMongo.length;
-      const skipValue = skip || 0;
-      const limitValue = limit || 20;
-      const cidadesPaginadas = cidadesMongo.slice(skipValue, skipValue + limitValue);
 
-      return {
-        cidades: cidadesPaginadas,
-        total,
-        limit: limitValue,
-        skip: skipValue,
-        doMongoDB: true
-      };
+    // Verificar se encontrou cidades suficientes E se elas estão próximas do limite do raio
+    if (cidadesMongo.length >= 3) {
+      // Encontrar a cidade mais distante
+      const cidadeMaisDistante = cidadesMongo[cidadesMongo.length - 1];
+      const distanciaMaxima = cidadeMaisDistante?.distancia_km || 0;
+
+      // Se a cidade mais distante está muito longe do limite do raio solicitado
+      // (ex: raio é 50km mas a cidade mais distante está a 30km), consultar API
+      // para garantir que temos todas as cidades no raio solicitado
+      // Usamos 80% do raio como threshold (se a cidade mais distante está a menos de 80% do raio, pode estar faltando cidades)
+      const threshold = raioKm * 0.8;
+
+      if (distanciaMaxima < threshold) {
+        // Cidades estão muito próximas do centro, pode estar faltando cidades no limite do raio
+        // Consultar API para garantir completude
+        const cidadesApi = await this.googleMapsService.obterCidadesVizinhas(lat, lon, raioKm);
+
+        // Salvar novas cidades no MongoDB
+        if (cidadesApi.length > 0) {
+          await this.salvarCidades(cidadesApi);
+        }
+
+        // Combinar resultados do MongoDB e API, removendo duplicatas
+        const todasCidades = [...cidadesMongo, ...cidadesApi];
+        const cidadesUnicas = new Map();
+        for (const cidade of todasCidades) {
+          const key = `${cidade.nome.toLowerCase()}_${cidade.estado}_${cidade.pais}`;
+          if (!cidadesUnicas.has(key)) {
+            cidadesUnicas.set(key, cidade);
+          }
+        }
+
+        const resultado = Array.from(cidadesUnicas.values())
+          .sort((a, b) => a.distancia_km - b.distancia_km);
+
+        // Aplicar paginação
+        const total = resultado.length;
+        const skipValue = skip || 0;
+        const limitValue = limit || 20;
+        const cidadesPaginadas = resultado.slice(skipValue, skipValue + limitValue);
+
+        return {
+          cidades: cidadesPaginadas,
+          total,
+          limit: limitValue,
+          skip: skipValue,
+          doMongoDB: false, // Combinou MongoDB + API
+        };
+      } else {
+        // Cidades estão próximas do limite do raio, provavelmente temos todas as cidades
+        // Aplicar paginação
+        const total = cidadesMongo.length;
+        const skipValue = skip || 0;
+        const limitValue = limit || 20;
+        const cidadesPaginadas = cidadesMongo.slice(skipValue, skipValue + limitValue);
+
+        return {
+          cidades: cidadesPaginadas,
+          total,
+          limit: limitValue,
+          skip: skipValue,
+          doMongoDB: true
+        };
+      }
     }
 
     // Se não encontrou no MongoDB ou encontrou poucas, consultar API
@@ -846,6 +998,100 @@ export class CidadesService {
    */
   gerarUrlFoto(photoReference: string, maxWidth: number = 800, maxHeight: number = 600): string {
     return this.googleMapsService.gerarUrlFoto(photoReference, maxWidth, maxHeight);
+  }
+
+  /**
+   * Busca locais excluídos (soft delete) por cidade
+   */
+  async buscarLocaisExcluidos(city: string, estado?: string, limit: number = 50, skip: number = 0) {
+    try {
+      // Validar limit
+      const limitFinal = Math.min(Math.max(1, limit || 50), 100);
+      const skipFinal = Math.max(0, skip || 0);
+
+      // Buscar cidade no MongoDB
+      const queryCidade: any = {
+        nome: { $regex: new RegExp(`^${city}$`, 'i') },
+      };
+
+      if (estado) {
+        queryCidade.estado = { $regex: new RegExp(`^${estado}$`, 'i') };
+      }
+
+      const cidade = await this.cidadeModel.findOne(queryCidade);
+
+      if (!cidade) {
+        return {
+          locais: [],
+          total: 0,
+          cidade: null,
+          limit: limitFinal,
+          skip: skipFinal,
+        };
+      }
+
+      // Buscar apenas locais excluídos (com deletedAt preenchido)
+      const queryLocais: any = {
+        cidade: cidade._id,
+        deletedAt: { $ne: null }, // Apenas locais com deletedAt preenchido
+      };
+
+      const [locais, total] = await Promise.all([
+        this.localModel
+          .find(queryLocais)
+          .limit(limitFinal)
+          .skip(skipFinal)
+          .sort({ deletedAt: -1 }) // Mais recentes primeiro
+          .lean()
+          .exec(),
+        this.localModel.countDocuments(queryLocais),
+      ]);
+
+      // Formatar para o mesmo formato da rota de locais salvos
+      const locaisFormatados = locais.map((local: any) => ({
+        id: local._id.toString(),
+        tipo: local.tipo,
+        nome: local.nome,
+        descricao: local.descricao || `Local encontrado em ${city}`,
+        endereco: local.endereco,
+        formatted_address: local.formatted_address || local.endereco,
+        coordenadas: {
+          lat: local.localizacao?.coordinates?.[1] || null,
+          lon: local.localizacao?.coordinates?.[0] || null,
+        },
+        preco: local.preco || 0,
+        avaliacao: local.avaliacao,
+        place_id: local.place_id,
+        photos: local.photos || [],
+        formatted_phone_number: local.formatted_phone_number,
+        website: local.website,
+        url: local.url,
+        opening_hours: local.opening_hours || [],
+        current_opening_hours: local.current_opening_hours,
+        open_now: local.open_now || false,
+        reviews: local.reviews || [],
+        address_components: local.address_components || [],
+        business_status: local.business_status,
+        deletedAt: local.deletedAt,
+        criadoEm: local.criadoEm,
+        atualizadoEm: local.atualizadoEm,
+      }));
+
+      return {
+        locais: locaisFormatados,
+        total,
+        cidade: {
+          id: cidade._id.toString(),
+          nome: cidade.nome,
+          estado: cidade.estado,
+          pais: cidade.pais,
+        },
+        limit: limitFinal,
+        skip: skipFinal,
+      };
+    } catch (error) {
+      throw new Error(`Erro ao buscar locais excluídos: ${error.message}`);
+    }
   }
 
   /**
