@@ -50,6 +50,7 @@ export declare class CidadesController {
                 rating: number;
                 total_avaliacoes: number;
                 tipos: string[];
+                categorias: string[];
                 place_id: string;
                 nivel_preco: number;
                 photos: {

@@ -522,6 +522,17 @@ export class CidadesService {
           }
         }
 
+        // Adicionar categoria baseada na query (sem duplicatas)
+        let precisaAtualizarCategoria = false;
+        if (tipoQuery && tipoQuery.trim()) {
+          const categoriaNormalizada = tipoQuery.trim().toLowerCase();
+          const categoriasExistentes = localExistente.categorias || [];
+          if (!categoriasExistentes.includes(categoriaNormalizada)) {
+            localExistente.categorias = [...categoriasExistentes, categoriaNormalizada];
+            precisaAtualizarCategoria = true;
+          }
+        }
+
         // Verificar se há novos detalhes para atualizar
         const temPhotosNovos = localData.photos?.length > 0;
         const temReviewsNovos = localData.reviews?.length > 0;
@@ -536,7 +547,7 @@ export class CidadesService {
         const websiteVazio = !localExistente.website;
 
         const precisaAtualizarDetalhes = temDetalhesNovos && (photosVazios || reviewsVazios || telefoneVazio || websiteVazio);
-        const precisaAtualizar = precisaAtualizarCidade || precisaAtualizarDetalhes;
+        const precisaAtualizar = precisaAtualizarCidade || precisaAtualizarCategoria || precisaAtualizarDetalhes;
 
         if (precisaAtualizar) {
           // Atualizar campos detalhados (sempre que houver novos dados)
@@ -613,6 +624,11 @@ export class CidadesService {
         return null;
       }
 
+      // Preparar categorias para novo local
+      const categorias = tipoQuery && tipoQuery.trim()
+        ? [tipoQuery.trim().toLowerCase()]
+        : [];
+
       const local = new this.localModel({
         tipo: tipoLocal,
         nome: localData.nome.trim(),
@@ -624,6 +640,7 @@ export class CidadesService {
         preco: preco,
         avaliacao: localData.rating || undefined,
         tipos: localData.tipos || [],
+        categorias: categorias,
         total_avaliacoes: localData.total_avaliacoes || 0,
         place_id: localData.place_id,
         cidade: cidadeId,
@@ -751,6 +768,7 @@ export class CidadesService {
           preco: localSalvo?.preco || estimarPrecoPorPriceLevel(local.nivel_preco),
           avaliacao: local.rating || localSalvo?.avaliacao,
           place_id: local.place_id,
+          categorias: localSalvo?.categorias || [],
           photos: local.photos || [],
           formatted_phone_number: local.formatted_phone_number,
           website: local.website,
@@ -862,6 +880,7 @@ export class CidadesService {
         rating: local.avaliacao || null,
         total_avaliacoes: local.total_avaliacoes || local.reviews?.length || null,
         tipos: local.tipos || [],
+        categorias: local.categorias || [],
         place_id: local.place_id,
         nivel_preco: local.preco ? (local.preco >= 1200 ? 4 : local.preco >= 600 ? 3 : local.preco >= 300 ? 2 : local.preco >= 150 ? 1 : 0) : null,
         photos: local.photos || [],

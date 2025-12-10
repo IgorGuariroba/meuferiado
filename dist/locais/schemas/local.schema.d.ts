@@ -28,6 +28,7 @@ export declare class Local {
     comodidades: string[];
     avaliacao?: number;
     tipos?: string[];
+    categorias?: string[];
     total_avaliacoes?: number;
     cidade?: Types.ObjectId;
     place_id?: string;
@@ -180,6 +181,15 @@ export declare const LocalSchema: import("mongoose").Schema<Local, import("mongo
         id: string;
     }>;
     tipos?: import("mongoose").SchemaDefinitionProperty<string[], Local, Document<unknown, {}, Local, {
+        id: string;
+    }, import("mongoose").ResolveSchemaOptions<import("mongoose").DefaultSchemaOptions>> & Omit<Local & {
+        _id: Types.ObjectId;
+    } & {
+        __v: number;
+    }, "id"> & {
+        id: string;
+    }>;
+    categorias?: import("mongoose").SchemaDefinitionProperty<string[], Local, Document<unknown, {}, Local, {
         id: string;
     }, import("mongoose").ResolveSchemaOptions<import("mongoose").DefaultSchemaOptions>> & Omit<Local & {
         _id: Types.ObjectId;

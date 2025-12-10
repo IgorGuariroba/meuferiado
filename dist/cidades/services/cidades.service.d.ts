@@ -103,6 +103,7 @@ export declare class CidadesService {
         preco: any;
         avaliacao: any;
         place_id: any;
+        categorias: any;
         photos: any;
         formatted_phone_number: any;
         website: any;
@@ -127,6 +128,7 @@ export declare class CidadesService {
             rating: number;
             total_avaliacoes: number;
             tipos: string[];
+            categorias: string[];
             place_id: string;
             nivel_preco: number;
             photos: {

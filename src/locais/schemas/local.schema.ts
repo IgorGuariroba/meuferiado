@@ -80,6 +80,9 @@ export class Local {
   @Prop({ type: [String], default: [] })
   tipos?: string[]; // Tipos do Google Places (ex: ['lodging', 'point_of_interest'])
 
+  @Prop({ type: [String], default: [] })
+  categorias?: string[]; // Categorias baseadas nas queries de busca (ex: ['abrigo de montanha', 'camping'])
+
   @Prop({ required: false, default: 0 })
   total_avaliacoes?: number; // Total de avaliações (userRatingCount)
 

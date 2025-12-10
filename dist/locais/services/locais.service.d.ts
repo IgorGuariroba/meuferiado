@@ -49,6 +49,7 @@ export declare class LocaisService {
         comodidades: string[];
         avaliacao?: number;
         tipos?: string[];
+        categorias?: string[];
         total_avaliacoes?: number;
         cidade?: Types.ObjectId;
         place_id?: string;
