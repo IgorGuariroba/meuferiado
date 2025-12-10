@@ -450,16 +450,37 @@ export class CidadesService {
     try {
       // Se não tem place_id, não podemos verificar duplicata de forma confiável
       if (!localData.place_id) {
+        console.warn(`Local sem place_id não pode ser salvo: ${localData.nome}`);
         return null;
       }
 
-      // Verificar se já existe pelo place_id
+      // Validar campos obrigatórios
+      if (!localData.nome || !localData.nome.trim()) {
+        console.warn(`Local sem nome não pode ser salvo. Place ID: ${localData.place_id}`);
+        return null;
+      }
+
+      if (!localData.endereco && !localData.formatted_address) {
+        console.warn(`Local sem endereço não pode ser salvo: ${localData.nome} (${localData.place_id})`);
+        return null;
+      }
+
+      if (!localData.coordenadas || !localData.coordenadas.lat || !localData.coordenadas.lon) {
+        console.warn(`Local sem coordenadas não pode ser salvo: ${localData.nome} (${localData.place_id})`);
+        return null;
+      }
+
+      // Verificar se já existe pelo place_id (incluindo excluídos)
       const localExistente = await this.localModel.findOne({
         place_id: localData.place_id,
-        deletedAt: null, // Apenas locais não deletados
       });
 
       if (localExistente) {
+        // Se o local foi excluído (soft delete), não atualizar nem restaurar
+        // O usuário excluiu por um motivo, então não devemos restaurar automaticamente
+        if (localExistente.deletedAt) {
+          return null; // Retornar null para indicar que não deve ser salvo/retornado
+        }
         // Verificar se há novos detalhes para atualizar
         const temPhotosNovos = localData.photos?.length > 0;
         const temReviewsNovos = localData.reviews?.length > 0;
@@ -533,10 +554,17 @@ export class CidadesService {
       const preco = estimarPrecoPorPriceLevel(localData.nivel_preco);
 
       // Criar novo local com todos os campos disponíveis
+      const endereco = localData.endereco || localData.formatted_address || '';
+
+      if (!endereco.trim()) {
+        console.warn(`Local sem endereço válido não pode ser salvo: ${localData.nome} (${localData.place_id})`);
+        return null;
+      }
+
       const local = new this.localModel({
         tipo: tipoLocal,
-        nome: localData.nome,
-        endereco: localData.endereco || localData.formatted_address || '',
+        nome: localData.nome.trim(),
+        endereco: endereco.trim(),
         localizacao: {
           type: 'Point',
           coordinates: [localData.coordenadas.lon, localData.coordenadas.lat], // [longitude, latitude]
@@ -583,55 +611,39 @@ export class CidadesService {
           });
         return existente;
       }
+      // Log do erro para debug
+      console.error(`Erro ao salvar local ${localData.nome} (${localData.place_id}):`, error.message);
+      if (error.errors) {
+        console.error('Erros de validação:', error.errors);
+      }
       return null;
     }
   }
 
   /**
    * Busca locais em uma cidade usando Places API e salva no MongoDB
-   * Exclui da resposta locais que já existem no MongoDB (mesmo place_id)
-   * Otimizado: filtra ANTES de buscar detalhes para economizar chamadas à API
+   * Sempre busca na API do Google e retorna todos os resultados encontrados
    */
   async buscarLocaisPorCidade(query: string, city: string) {
     try {
-      // Primeiro, buscar apenas os dados básicos (sem detalhes completos)
+      // Buscar dados básicos na API do Google
       const locaisBasicos = await this.googleMapsService.buscarLocaisBasicosPorCidade(query, city);
 
       if (locaisBasicos.length === 0) {
         return [];
       }
 
-      // Buscar todos os place_ids que já existem no MongoDB
-      const placeIds = locaisBasicos
-        .map(local => local.place_id)
-        .filter(placeId => placeId); // Remove valores nulos/undefined
+      // Filtrar apenas locais com place_id válido
+      const locaisComPlaceId = locaisBasicos.filter(local => local.place_id);
 
-      if (placeIds.length === 0) {
+      if (locaisComPlaceId.length === 0) {
         return [];
       }
 
-      const locaisExistentes = await this.localModel.find({
-        place_id: { $in: placeIds },
-        deletedAt: null, // Apenas locais não deletados
-      }).select('place_id').lean().exec();
+      // Buscar detalhes completos de todos os locais encontrados
+      const locais = await this.googleMapsService.buscarDetalhesLocais(locaisComPlaceId);
 
-      const placeIdsExistentes = new Set(
-        locaisExistentes.map(local => local.place_id)
-      );
-
-      // Filtrar apenas locais que ainda não existem no MongoDB
-      const locaisNovosBasicos = locaisBasicos.filter(local =>
-        !local.place_id || !placeIdsExistentes.has(local.place_id)
-      );
-
-      if (locaisNovosBasicos.length === 0) {
-        return [];
-      }
-
-      // Agora buscar detalhes completos APENAS dos locais novos
-      const locais = await this.googleMapsService.buscarDetalhesLocais(locaisNovosBasicos);
-
-      // Salvar apenas os novos locais no MongoDB
+      // Salvar todos os locais no MongoDB (o método salvarLocalSeNaoExistir trata duplicatas)
       const locaisSalvos = await Promise.allSettled(
         locais.map(local =>
           this.salvarLocalSeNaoExistir(local, query, city),
@@ -641,13 +653,17 @@ export class CidadesService {
       // Processar resultados
       const salvosComSucesso = [];
 
-      locaisSalvos.forEach((result) => {
+      locaisSalvos.forEach((result, index) => {
         if (result.status === 'fulfilled' && result.value !== null) {
           salvosComSucesso.push(result.value);
+        } else if (result.status === 'rejected') {
+          console.error(`Erro ao salvar local ${index}:`, result.reason);
+        } else if (result.status === 'fulfilled' && result.value === null) {
+          console.warn(`Local ${index} não foi salvo (retornou null). Place ID: ${locais[index]?.place_id}`);
         }
       });
 
-      // Formatar apenas os novos locais para o mesmo formato da rota de locais salvos
+      // Formatar todos os locais encontrados para o mesmo formato da rota de locais salvos
       const locaisFormatados = locais.map(local => {
         // Buscar o local salvo correspondente para pegar o ID e outros campos do MongoDB
         const localSalvo = salvosComSucesso.find(l => l.place_id === local.place_id);

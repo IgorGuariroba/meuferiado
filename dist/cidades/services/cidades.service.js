@@ -307,13 +307,28 @@ let CidadesService = class CidadesService {
     async salvarLocalSeNaoExistir(localData, tipoQuery, city) {
         try {
             if (!localData.place_id) {
+                console.warn(`Local sem place_id não pode ser salvo: ${localData.nome}`);
+                return null;
+            }
+            if (!localData.nome || !localData.nome.trim()) {
+                console.warn(`Local sem nome não pode ser salvo. Place ID: ${localData.place_id}`);
+                return null;
+            }
+            if (!localData.endereco && !localData.formatted_address) {
+                console.warn(`Local sem endereço não pode ser salvo: ${localData.nome} (${localData.place_id})`);
+                return null;
+            }
+            if (!localData.coordenadas || !localData.coordenadas.lat || !localData.coordenadas.lon) {
+                console.warn(`Local sem coordenadas não pode ser salvo: ${localData.nome} (${localData.place_id})`);
                 return null;
             }
             const localExistente = await this.localModel.findOne({
                 place_id: localData.place_id,
-                deletedAt: null,
             });
             if (localExistente) {
+                if (localExistente.deletedAt) {
+                    return null;
+                }
                 const temPhotosNovos = localData.photos?.length > 0;
                 const temReviewsNovos = localData.reviews?.length > 0;
                 const temTelefoneNovo = !!localData.formatted_phone_number;
@@ -374,10 +389,15 @@ let CidadesService = class CidadesService {
             }
             const tipoLocal = (0, mapear_tipo_local_util_1.mapearTipoLocal)(tipoQuery);
             const preco = (0, mapear_tipo_local_util_1.estimarPrecoPorPriceLevel)(localData.nivel_preco);
+            const endereco = localData.endereco || localData.formatted_address || '';
+            if (!endereco.trim()) {
+                console.warn(`Local sem endereço válido não pode ser salvo: ${localData.nome} (${localData.place_id})`);
+                return null;
+            }
             const local = new this.localModel({
                 tipo: tipoLocal,
-                nome: localData.nome,
-                endereco: localData.endereco || localData.formatted_address || '',
+                nome: localData.nome.trim(),
+                endereco: endereco.trim(),
                 localizacao: {
                     type: 'Point',
                     coordinates: [localData.coordenadas.lon, localData.coordenadas.lat],
@@ -416,6 +436,10 @@ let CidadesService = class CidadesService {
                 });
                 return existente;
             }
+            console.error(`Erro ao salvar local ${localData.nome} (${localData.place_id}):`, error.message);
+            if (error.errors) {
+                console.error('Erros de validação:', error.errors);
+            }
             return null;
         }
     }
@@ -425,27 +449,22 @@ let CidadesService = class CidadesService {
             if (locaisBasicos.length === 0) {
                 return [];
             }
-            const placeIds = locaisBasicos
-                .map(local => local.place_id)
-                .filter(placeId => placeId);
-            if (placeIds.length === 0) {
+            const locaisComPlaceId = locaisBasicos.filter(local => local.place_id);
+            if (locaisComPlaceId.length === 0) {
                 return [];
             }
-            const locaisExistentes = await this.localModel.find({
-                place_id: { $in: placeIds },
-                deletedAt: null,
-            }).select('place_id').lean().exec();
-            const placeIdsExistentes = new Set(locaisExistentes.map(local => local.place_id));
-            const locaisNovosBasicos = locaisBasicos.filter(local => !local.place_id || !placeIdsExistentes.has(local.place_id));
-            if (locaisNovosBasicos.length === 0) {
-                return [];
-            }
-            const locais = await this.googleMapsService.buscarDetalhesLocais(locaisNovosBasicos);
+            const locais = await this.googleMapsService.buscarDetalhesLocais(locaisComPlaceId);
             const locaisSalvos = await Promise.allSettled(locais.map(local => this.salvarLocalSeNaoExistir(local, query, city)));
             const salvosComSucesso = [];
-            locaisSalvos.forEach((result) => {
+            locaisSalvos.forEach((result, index) => {
                 if (result.status === 'fulfilled' && result.value !== null) {
                     salvosComSucesso.push(result.value);
+                }
+                else if (result.status === 'rejected') {
+                    console.error(`Erro ao salvar local ${index}:`, result.reason);
+                }
+                else if (result.status === 'fulfilled' && result.value === null) {
+                    console.warn(`Local ${index} não foi salvo (retornou null). Place ID: ${locais[index]?.place_id}`);
                 }
             });
             const locaisFormatados = locais.map(local => {
