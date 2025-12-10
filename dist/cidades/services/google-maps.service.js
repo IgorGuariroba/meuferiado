@@ -209,16 +209,28 @@ let GoogleMapsService = class GoogleMapsService {
             return null;
         }
     }
-    async buscarLocaisBasicosPorCidade(query, city) {
+    async buscarLocaisBasicosPorCidade(query, city, coordenadasCidade) {
         try {
             if (!this.apiKey) {
                 throw new Error('Chave da API do Google Maps não configurada. Configure GOOGLE_MAPS_API_KEY no arquivo .env');
             }
             const searchQuery = `${query} em ${city}`;
-            const response = await axios_1.default.post('https://places.googleapis.com/v1/places:searchText', {
+            const requestBody = {
                 textQuery: searchQuery,
                 languageCode: 'pt-BR',
-            }, {
+            };
+            if (coordenadasCidade) {
+                requestBody.locationBias = {
+                    circle: {
+                        center: {
+                            latitude: coordenadasCidade.lat,
+                            longitude: coordenadasCidade.lon,
+                        },
+                        radius: 30000.0,
+                    },
+                };
+            }
+            const response = await axios_1.default.post('https://places.googleapis.com/v1/places:searchText', requestBody, {
                 headers: {
                     'Content-Type': 'application/json',
                     'X-Goog-Api-Key': this.apiKey,

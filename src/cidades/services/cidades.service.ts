@@ -694,15 +694,69 @@ export class CidadesService {
    */
   async buscarLocaisPorCidade(query: string, city: string) {
     try {
-      // Buscar dados básicos na API do Google
-      const locaisBasicos = await this.googleMapsService.buscarLocaisBasicosPorCidade(query, city);
+      // Buscar coordenadas da cidade para aplicar filtro geográfico
+      let coordenadasCidade: { lat: number; lon: number } | null = null;
+      let estadoCidade: string | null = null;
+      try {
+        const enderecoInfo = await this.buscarCoordenadasPorEndereco(city);
+        if (enderecoInfo && enderecoInfo.coordenadas) {
+          coordenadasCidade = enderecoInfo.coordenadas;
+          estadoCidade = enderecoInfo.estado || null;
+        }
+      } catch (error) {
+        // Se não conseguir obter coordenadas, continuar sem filtro geográfico
+      }
+
+      // Buscar dados básicos na API do Google com filtro geográfico
+      const locaisBasicos = await this.googleMapsService.buscarLocaisBasicosPorCidade(
+        query,
+        city,
+        coordenadasCidade,
+      );
 
       if (locaisBasicos.length === 0) {
         return [];
       }
 
       // Filtrar apenas locais com place_id válido
-      const locaisComPlaceId = locaisBasicos.filter(local => local.place_id);
+      let locaisComPlaceId = locaisBasicos.filter(local => local.place_id);
+
+      // Filtrar locais por proximidade geográfica se tivermos coordenadas da cidade
+      if (coordenadasCidade) {
+        const raioMaximoKm = 50; // Raio máximo de 50km da cidade
+
+        locaisComPlaceId = locaisComPlaceId.filter(local => {
+          if (!local.coordenadas || !local.coordenadas.lat || !local.coordenadas.lon) {
+            return false;
+          }
+
+          const distancia = calcularDistancia(
+            coordenadasCidade.lat,
+            coordenadasCidade.lon,
+            local.coordenadas.lat,
+            local.coordenadas.lon,
+          );
+
+          return distancia <= raioMaximoKm;
+        });
+      }
+
+      // Filtrar por estado se tivermos essa informação
+      if (estadoCidade && locaisComPlaceId.length > 0) {
+        // Verificar se o endereço do local contém o estado correto
+        locaisComPlaceId = locaisComPlaceId.filter(local => {
+          if (!local.endereco && !local.formatted_address) {
+            return true; // Manter se não tiver endereço para verificar depois
+          }
+
+          const enderecoCompleto = (local.endereco || local.formatted_address || '').toUpperCase();
+          const estadoUpper = estadoCidade.toUpperCase();
+
+          // Verificar se o endereço contém o estado correto
+          return enderecoCompleto.includes(estadoUpper) ||
+                 enderecoCompleto.includes(estadoUpper.replace('SP', 'SÃO PAULO'));
+        });
+      }
 
       if (locaisComPlaceId.length === 0) {
         return [];
@@ -734,7 +788,6 @@ export class CidadesService {
             stack: result.reason?.stack,
           };
           errosSalvamento.push(erro);
-          console.error(`[buscarLocaisPorCidade] Erro ao salvar local "${local?.nome}" (${local?.place_id}):`, result.reason);
         } else if (result.status === 'fulfilled' && result.value === null) {
           const erro = {
             nome: local?.nome || 'Desconhecido',
@@ -742,15 +795,8 @@ export class CidadesService {
             erro: 'Local retornou null (pode não ter passado na validação ou já estar deletado)',
           };
           errosSalvamento.push(erro);
-          console.warn(`[buscarLocaisPorCidade] Local "${local?.nome}" (${local?.place_id}) não foi salvo (retornou null)`);
         }
       });
-
-      // Log resumo
-      console.log(`[buscarLocaisPorCidade] Salvos: ${salvosComSucesso.length}/${locais.length}, Erros: ${errosSalvamento.length}`);
-      if (errosSalvamento.length > 0) {
-        console.error(`[buscarLocaisPorCidade] Locais que falharam ao salvar:`, errosSalvamento.map(e => `${e.nome} (${e.place_id})`).join(', '));
-      }
 
       // Formatar todos os locais encontrados para o mesmo formato da rota de locais salvos
       const locaisFormatados = locais.map(local => {
@@ -786,7 +832,6 @@ export class CidadesService {
 
       // Se houver erros, adicionar informação na resposta (sem quebrar a API)
       if (errosSalvamento.length > 0) {
-        console.error(`[buscarLocaisPorCidade] ATENÇÃO: ${errosSalvamento.length} locais falharam ao salvar. Verifique os logs acima para detalhes.`);
         // Adicionar informação sobre erros nos locais formatados (como metadado)
         locaisFormatados.forEach((localFormatado) => {
           const erro = errosSalvamento.find(e => e.place_id === localFormatado.place_id);
@@ -805,11 +850,8 @@ export class CidadesService {
         });
       }
 
-      console.log(`[buscarLocaisPorCidade] Retornando ${locaisFormatados.length} locais formatados (${salvosComSucesso.length} salvos, ${errosSalvamento.length} com erro)`);
-
       return locaisFormatados;
     } catch (error) {
-      console.error(`[buscarLocaisPorCidade] Erro fatal:`, error);
       throw new Error(`Erro ao buscar locais: ${error.message}`);
     }
   }

@@ -491,11 +491,43 @@ let CidadesService = class CidadesService {
     }
     async buscarLocaisPorCidade(query, city) {
         try {
-            const locaisBasicos = await this.googleMapsService.buscarLocaisBasicosPorCidade(query, city);
+            let coordenadasCidade = null;
+            let estadoCidade = null;
+            try {
+                const enderecoInfo = await this.buscarCoordenadasPorEndereco(city);
+                if (enderecoInfo && enderecoInfo.coordenadas) {
+                    coordenadasCidade = enderecoInfo.coordenadas;
+                    estadoCidade = enderecoInfo.estado || null;
+                }
+            }
+            catch (error) {
+            }
+            const locaisBasicos = await this.googleMapsService.buscarLocaisBasicosPorCidade(query, city, coordenadasCidade);
             if (locaisBasicos.length === 0) {
                 return [];
             }
-            const locaisComPlaceId = locaisBasicos.filter(local => local.place_id);
+            let locaisComPlaceId = locaisBasicos.filter(local => local.place_id);
+            if (coordenadasCidade) {
+                const raioMaximoKm = 50;
+                locaisComPlaceId = locaisComPlaceId.filter(local => {
+                    if (!local.coordenadas || !local.coordenadas.lat || !local.coordenadas.lon) {
+                        return false;
+                    }
+                    const distancia = (0, calcular_distancia_util_1.calcularDistancia)(coordenadasCidade.lat, coordenadasCidade.lon, local.coordenadas.lat, local.coordenadas.lon);
+                    return distancia <= raioMaximoKm;
+                });
+            }
+            if (estadoCidade && locaisComPlaceId.length > 0) {
+                locaisComPlaceId = locaisComPlaceId.filter(local => {
+                    if (!local.endereco && !local.formatted_address) {
+                        return true;
+                    }
+                    const enderecoCompleto = (local.endereco || local.formatted_address || '').toUpperCase();
+                    const estadoUpper = estadoCidade.toUpperCase();
+                    return enderecoCompleto.includes(estadoUpper) ||
+                        enderecoCompleto.includes(estadoUpper.replace('SP', 'SÃO PAULO'));
+                });
+            }
             if (locaisComPlaceId.length === 0) {
                 return [];
             }
@@ -516,7 +548,6 @@ let CidadesService = class CidadesService {
                         stack: result.reason?.stack,
                     };
                     errosSalvamento.push(erro);
-                    console.error(`[buscarLocaisPorCidade] Erro ao salvar local "${local?.nome}" (${local?.place_id}):`, result.reason);
                 }
                 else if (result.status === 'fulfilled' && result.value === null) {
                     const erro = {
@@ -525,13 +556,8 @@ let CidadesService = class CidadesService {
                         erro: 'Local retornou null (pode não ter passado na validação ou já estar deletado)',
                     };
                     errosSalvamento.push(erro);
-                    console.warn(`[buscarLocaisPorCidade] Local "${local?.nome}" (${local?.place_id}) não foi salvo (retornou null)`);
                 }
             });
-            console.log(`[buscarLocaisPorCidade] Salvos: ${salvosComSucesso.length}/${locais.length}, Erros: ${errosSalvamento.length}`);
-            if (errosSalvamento.length > 0) {
-                console.error(`[buscarLocaisPorCidade] Locais que falharam ao salvar:`, errosSalvamento.map(e => `${e.nome} (${e.place_id})`).join(', '));
-            }
             const locaisFormatados = locais.map(local => {
                 const localSalvo = salvosComSucesso.find(l => l.place_id === local.place_id);
                 return {
@@ -561,7 +587,6 @@ let CidadesService = class CidadesService {
                 };
             });
             if (errosSalvamento.length > 0) {
-                console.error(`[buscarLocaisPorCidade] ATENÇÃO: ${errosSalvamento.length} locais falharam ao salvar. Verifique os logs acima para detalhes.`);
                 locaisFormatados.forEach((localFormatado) => {
                     const erro = errosSalvamento.find(e => e.place_id === localFormatado.place_id);
                     if (erro) {
@@ -578,11 +603,9 @@ let CidadesService = class CidadesService {
                     local.salvo = true;
                 });
             }
-            console.log(`[buscarLocaisPorCidade] Retornando ${locaisFormatados.length} locais formatados (${salvosComSucesso.length} salvos, ${errosSalvamento.length} com erro)`);
             return locaisFormatados;
         }
         catch (error) {
-            console.error(`[buscarLocaisPorCidade] Erro fatal:`, error);
             throw new Error(`Erro ao buscar locais: ${error.message}`);
         }
     }

@@ -244,7 +244,11 @@ export class GoogleMapsService {
    * Busca apenas dados básicos dos locais (sem detalhes completos)
    * Usado para filtrar antes de buscar detalhes e economizar chamadas à API
    */
-  async buscarLocaisBasicosPorCidade(query: string, city: string) {
+  async buscarLocaisBasicosPorCidade(
+    query: string,
+    city: string,
+    coordenadasCidade?: { lat: number; lon: number } | null,
+  ) {
     try {
       if (!this.apiKey) {
         throw new Error('Chave da API do Google Maps não configurada. Configure GOOGLE_MAPS_API_KEY no arquivo .env');
@@ -253,13 +257,31 @@ export class GoogleMapsService {
       // Combinar query e cidade na busca
       const searchQuery = `${query} em ${city}`;
 
+      // Preparar o corpo da requisição
+      const requestBody: any = {
+        textQuery: searchQuery,
+        languageCode: 'pt-BR',
+      };
+
+      // Adicionar filtro geográfico se tivermos coordenadas da cidade
+      if (coordenadasCidade) {
+        // Usar locationBias com um círculo de 30km ao redor da cidade
+        // O raio é em metros, então 30km = 30000m
+        requestBody.locationBias = {
+          circle: {
+            center: {
+              latitude: coordenadasCidade.lat,
+              longitude: coordenadasCidade.lon,
+            },
+            radius: 30000.0, // 30km em metros
+          },
+        };
+      }
+
       // Usar a nova Places API (New) via POST
       const response = await axios.post(
         'https://places.googleapis.com/v1/places:searchText',
-        {
-          textQuery: searchQuery,
-          languageCode: 'pt-BR',
-        },
+        requestBody,
         {
           headers: {
             'Content-Type': 'application/json',
