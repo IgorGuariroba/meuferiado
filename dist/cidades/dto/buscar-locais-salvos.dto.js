@@ -59,4 +59,14 @@ __decorate([
     (0, class_validator_1.Min)(0),
     __metadata("design:type", Number)
 ], BuscarLocaisSalvosDto.prototype, "skip", void 0);
+__decorate([
+    (0, swagger_1.ApiProperty)({
+        description: 'Filtrar locais por nome (busca parcial, case-insensitive)',
+        example: 'Camping Refúgio',
+        required: false,
+    }),
+    (0, class_validator_1.IsString)(),
+    (0, class_validator_1.IsOptional)(),
+    __metadata("design:type", String)
+], BuscarLocaisSalvosDto.prototype, "nome", void 0);
 //# sourceMappingURL=buscar-locais-salvos.dto.js.map

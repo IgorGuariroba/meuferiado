@@ -116,7 +116,7 @@ export declare class CidadesService {
         criadoEm: any;
         atualizadoEm: any;
     }[]>;
-    buscarLocaisSalvosPorCidade(city: string, estado?: string, limit?: number, skip?: number): Promise<{
+    buscarLocaisSalvosPorCidade(city: string, estado?: string, limit?: number, skip?: number, nome?: string): Promise<{
         locais: {
             nome: string;
             endereco: string;

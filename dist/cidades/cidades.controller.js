@@ -149,10 +149,26 @@ let CidadesController = class CidadesController {
                 }, common_1.HttpStatus.BAD_REQUEST);
             }
             const locais = await this.cidadesService.buscarLocaisPorCidade(query.query, query.city);
-            return {
+            const locaisComErro = locais.filter((l) => l.salvo === false);
+            const totalSalvos = locais.filter((l) => l.salvo === true).length;
+            const totalComErro = locaisComErro.length;
+            const resposta = {
                 success: true,
                 data: locais,
+                meta: {
+                    total: locais.length,
+                    salvos: totalSalvos,
+                    comErro: totalComErro,
+                },
             };
+            if (totalComErro > 0) {
+                resposta.erros = locaisComErro.map((l) => ({
+                    nome: l.nome,
+                    place_id: l.place_id,
+                    erro: l.erroSalvamento,
+                }));
+            }
+            return resposta;
         }
         catch (error) {
             throw new common_1.HttpException({
@@ -171,7 +187,7 @@ let CidadesController = class CidadesController {
             }
             const limit = query.limit ? Math.min(Math.max(1, query.limit), 100) : 50;
             const skip = query.skip ? Math.max(0, query.skip) : 0;
-            const resultado = await this.cidadesService.buscarLocaisSalvosPorCidade(query.city, query.estado, limit, skip);
+            const resultado = await this.cidadesService.buscarLocaisSalvosPorCidade(query.city, query.estado, limit, skip, query.nome);
             return {
                 success: true,
                 data: resultado,
@@ -557,6 +573,13 @@ __decorate([
         type: Number,
         description: 'Número de locais para pular na paginação (padrão: 0)',
         example: 0,
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: 'nome',
+        required: false,
+        type: String,
+        description: 'Filtrar locais por nome (busca parcial, case-insensitive)',
+        example: 'Camping Refúgio',
     }),
     (0, swagger_1.ApiResponse)({
         status: 200,

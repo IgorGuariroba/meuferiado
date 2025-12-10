@@ -353,10 +353,31 @@ export class CidadesController {
 
       const locais = await this.cidadesService.buscarLocaisPorCidade(query.query, query.city);
 
-      return {
+      // Verificar se há locais com erro de salvamento
+      const locaisComErro = locais.filter((l: any) => l.salvo === false);
+      const totalSalvos = locais.filter((l: any) => l.salvo === true).length;
+      const totalComErro = locaisComErro.length;
+
+      const resposta: any = {
         success: true,
         data: locais,
+        meta: {
+          total: locais.length,
+          salvos: totalSalvos,
+          comErro: totalComErro,
+        },
       };
+
+      // Se houver erros, adicionar informações detalhadas
+      if (totalComErro > 0) {
+        resposta.erros = locaisComErro.map((l: any) => ({
+          nome: l.nome,
+          place_id: l.place_id,
+          erro: l.erroSalvamento,
+        }));
+      }
+
+      return resposta;
     } catch (error) {
       throw new HttpException(
         {
@@ -400,6 +421,13 @@ export class CidadesController {
     type: Number,
     description: 'Número de locais para pular na paginação (padrão: 0)',
     example: 0,
+  })
+  @ApiQuery({
+    name: 'nome',
+    required: false,
+    type: String,
+    description: 'Filtrar locais por nome (busca parcial, case-insensitive)',
+    example: 'Camping Refúgio',
   })
   @ApiResponse({
     status: 200,
@@ -489,6 +517,7 @@ export class CidadesController {
         query.estado,
         limit,
         skip,
+        query.nome,
       );
 
       return {

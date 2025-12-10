@@ -3,4 +3,5 @@ export declare class BuscarLocaisSalvosDto {
     estado?: string;
     limit?: number;
     skip?: number;
+    nome?: string;
 }

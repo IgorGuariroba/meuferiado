@@ -307,19 +307,15 @@ let CidadesService = class CidadesService {
     async salvarLocalSeNaoExistir(localData, tipoQuery, city) {
         try {
             if (!localData.place_id) {
-                console.warn(`Local sem place_id não pode ser salvo: ${localData.nome}`);
                 return null;
             }
             if (!localData.nome || !localData.nome.trim()) {
-                console.warn(`Local sem nome não pode ser salvo. Place ID: ${localData.place_id}`);
                 return null;
             }
             if (!localData.endereco && !localData.formatted_address) {
-                console.warn(`Local sem endereço não pode ser salvo: ${localData.nome} (${localData.place_id})`);
                 return null;
             }
             if (!localData.coordenadas || !localData.coordenadas.lat || !localData.coordenadas.lon) {
-                console.warn(`Local sem coordenadas não pode ser salvo: ${localData.nome} (${localData.place_id})`);
                 return null;
             }
             const localExistente = await this.localModel.findOne({
@@ -328,6 +324,37 @@ let CidadesService = class CidadesService {
             if (localExistente) {
                 if (localExistente.deletedAt) {
                     return null;
+                }
+                let precisaAtualizarCidade = false;
+                if (!localExistente.cidade) {
+                    let cidadeId;
+                    try {
+                        const cidade = await this.buscarCidadePorCoordenadas(localData.coordenadas.lat, localData.coordenadas.lon, 5);
+                        if (cidade && cidade.cidade && cidade.cidade !== 'Não encontrada') {
+                            const cidadeEncontrada = await this.cidadeModel.findOne({
+                                nome: cidade.cidade,
+                                estado: cidade.estado || '',
+                                pais: cidade.pais || '',
+                            });
+                            if (cidadeEncontrada) {
+                                cidadeId = cidadeEncontrada._id;
+                            }
+                        }
+                        if (!cidadeId && city) {
+                            const cidadePorNome = await this.cidadeModel.findOne({
+                                nome: { $regex: new RegExp(`^${city}$`, 'i') },
+                            });
+                            if (cidadePorNome) {
+                                cidadeId = cidadePorNome._id;
+                            }
+                        }
+                        if (cidadeId) {
+                            localExistente.cidade = cidadeId;
+                            precisaAtualizarCidade = true;
+                        }
+                    }
+                    catch (error) {
+                    }
                 }
                 const temPhotosNovos = localData.photos?.length > 0;
                 const temReviewsNovos = localData.reviews?.length > 0;
@@ -338,7 +365,8 @@ let CidadesService = class CidadesService {
                 const reviewsVazios = !localExistente.reviews || localExistente.reviews.length === 0;
                 const telefoneVazio = !localExistente.formatted_phone_number;
                 const websiteVazio = !localExistente.website;
-                const precisaAtualizar = temDetalhesNovos && (photosVazios || reviewsVazios || telefoneVazio || websiteVazio);
+                const precisaAtualizarDetalhes = temDetalhesNovos && (photosVazios || reviewsVazios || telefoneVazio || websiteVazio);
+                const precisaAtualizar = precisaAtualizarCidade || precisaAtualizarDetalhes;
                 if (precisaAtualizar) {
                     if (temPhotosNovos && photosVazios) {
                         localExistente.photos = localData.photos;
@@ -384,6 +412,14 @@ let CidadesService = class CidadesService {
                         cidadeId = cidadeEncontrada._id;
                     }
                 }
+                if (!cidadeId && city) {
+                    const cidadePorNome = await this.cidadeModel.findOne({
+                        nome: { $regex: new RegExp(`^${city}$`, 'i') },
+                    });
+                    if (cidadePorNome) {
+                        cidadeId = cidadePorNome._id;
+                    }
+                }
             }
             catch (error) {
             }
@@ -391,7 +427,6 @@ let CidadesService = class CidadesService {
             const preco = (0, mapear_tipo_local_util_1.estimarPrecoPorPriceLevel)(localData.nivel_preco);
             const endereco = localData.endereco || localData.formatted_address || '';
             if (!endereco.trim()) {
-                console.warn(`Local sem endereço válido não pode ser salvo: ${localData.nome} (${localData.place_id})`);
                 return null;
             }
             const local = new this.localModel({
@@ -434,13 +469,11 @@ let CidadesService = class CidadesService {
                     place_id: localData.place_id,
                     deletedAt: null,
                 });
-                return existente;
+                if (existente) {
+                    return existente;
+                }
             }
-            console.error(`Erro ao salvar local ${localData.nome} (${localData.place_id}):`, error.message);
-            if (error.errors) {
-                console.error('Erros de validação:', error.errors);
-            }
-            return null;
+            throw error;
         }
     }
     async buscarLocaisPorCidade(query, city) {
@@ -456,17 +489,36 @@ let CidadesService = class CidadesService {
             const locais = await this.googleMapsService.buscarDetalhesLocais(locaisComPlaceId);
             const locaisSalvos = await Promise.allSettled(locais.map(local => this.salvarLocalSeNaoExistir(local, query, city)));
             const salvosComSucesso = [];
+            const errosSalvamento = [];
             locaisSalvos.forEach((result, index) => {
+                const local = locais[index];
                 if (result.status === 'fulfilled' && result.value !== null) {
                     salvosComSucesso.push(result.value);
                 }
                 else if (result.status === 'rejected') {
-                    console.error(`Erro ao salvar local ${index}:`, result.reason);
+                    const erro = {
+                        nome: local?.nome || 'Desconhecido',
+                        place_id: local?.place_id || 'N/A',
+                        erro: result.reason?.message || String(result.reason),
+                        stack: result.reason?.stack,
+                    };
+                    errosSalvamento.push(erro);
+                    console.error(`[buscarLocaisPorCidade] Erro ao salvar local "${local?.nome}" (${local?.place_id}):`, result.reason);
                 }
                 else if (result.status === 'fulfilled' && result.value === null) {
-                    console.warn(`Local ${index} não foi salvo (retornou null). Place ID: ${locais[index]?.place_id}`);
+                    const erro = {
+                        nome: local?.nome || 'Desconhecido',
+                        place_id: local?.place_id || 'N/A',
+                        erro: 'Local retornou null (pode não ter passado na validação ou já estar deletado)',
+                    };
+                    errosSalvamento.push(erro);
+                    console.warn(`[buscarLocaisPorCidade] Local "${local?.nome}" (${local?.place_id}) não foi salvo (retornou null)`);
                 }
             });
+            console.log(`[buscarLocaisPorCidade] Salvos: ${salvosComSucesso.length}/${locais.length}, Erros: ${errosSalvamento.length}`);
+            if (errosSalvamento.length > 0) {
+                console.error(`[buscarLocaisPorCidade] Locais que falharam ao salvar:`, errosSalvamento.map(e => `${e.nome} (${e.place_id})`).join(', '));
+            }
             const locaisFormatados = locais.map(local => {
                 const localSalvo = salvosComSucesso.find(l => l.place_id === local.place_id);
                 return {
@@ -494,13 +546,33 @@ let CidadesService = class CidadesService {
                     atualizadoEm: localSalvo?.atualizadoEm || null,
                 };
             });
+            if (errosSalvamento.length > 0) {
+                console.error(`[buscarLocaisPorCidade] ATENÇÃO: ${errosSalvamento.length} locais falharam ao salvar. Verifique os logs acima para detalhes.`);
+                locaisFormatados.forEach((localFormatado) => {
+                    const erro = errosSalvamento.find(e => e.place_id === localFormatado.place_id);
+                    if (erro) {
+                        localFormatado.erroSalvamento = erro.erro;
+                        localFormatado.salvo = false;
+                    }
+                    else {
+                        localFormatado.salvo = true;
+                    }
+                });
+            }
+            else {
+                locaisFormatados.forEach(local => {
+                    local.salvo = true;
+                });
+            }
+            console.log(`[buscarLocaisPorCidade] Retornando ${locaisFormatados.length} locais formatados (${salvosComSucesso.length} salvos, ${errosSalvamento.length} com erro)`);
             return locaisFormatados;
         }
         catch (error) {
+            console.error(`[buscarLocaisPorCidade] Erro fatal:`, error);
             throw new Error(`Erro ao buscar locais: ${error.message}`);
         }
     }
-    async buscarLocaisSalvosPorCidade(city, estado, limit = 50, skip = 0) {
+    async buscarLocaisSalvosPorCidade(city, estado, limit = 50, skip = 0, nome) {
         try {
             const limitFinal = Math.min(Math.max(1, limit || 50), 100);
             const skipFinal = Math.max(0, skip || 0);
@@ -512,6 +584,7 @@ let CidadesService = class CidadesService {
             }
             const cidade = await this.cidadeModel.findOne(queryCidade);
             if (!cidade) {
+                console.warn(`[buscarLocaisSalvosPorCidade] Cidade "${city}" não encontrada no banco de dados.`);
                 return {
                     locais: [],
                     total: 0,
@@ -520,10 +593,14 @@ let CidadesService = class CidadesService {
                     skip: skipFinal,
                 };
             }
+            console.log(`[buscarLocaisSalvosPorCidade] Cidade encontrada: ${cidade.nome} (ID: ${cidade._id})`);
             const queryLocais = {
                 cidade: cidade._id,
                 deletedAt: null,
             };
+            if (nome) {
+                queryLocais.nome = { $regex: new RegExp(nome, 'i') };
+            }
             const [locais, total] = await Promise.all([
                 this.localModel
                     .find(queryLocais)

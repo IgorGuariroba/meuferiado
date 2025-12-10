@@ -41,5 +41,14 @@ export class BuscarLocaisSalvosDto {
   @IsOptional()
   @Min(0)
   skip?: number;
+
+  @ApiProperty({
+    description: 'Filtrar locais por nome (busca parcial, case-insensitive)',
+    example: 'Camping Refúgio',
+    required: false,
+  })
+  @IsString()
+  @IsOptional()
+  nome?: string;
 }
 

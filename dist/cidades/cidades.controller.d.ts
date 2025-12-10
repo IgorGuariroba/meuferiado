@@ -36,33 +36,7 @@ export declare class CidadesController {
             skip: number;
         };
     }>;
-    buscarLocais(query: BuscarLocaisDto): Promise<{
-        success: boolean;
-        data: {
-            id: any;
-            tipo: any;
-            nome: any;
-            descricao: any;
-            endereco: any;
-            formatted_address: any;
-            coordenadas: any;
-            preco: any;
-            avaliacao: any;
-            place_id: any;
-            photos: any;
-            formatted_phone_number: any;
-            website: any;
-            url: any;
-            opening_hours: any;
-            current_opening_hours: any;
-            open_now: any;
-            reviews: any;
-            address_components: any;
-            business_status: any;
-            criadoEm: any;
-            atualizadoEm: any;
-        }[];
-    }>;
+    buscarLocais(query: BuscarLocaisDto): Promise<any>;
     buscarLocaisSalvos(query: BuscarLocaisSalvosDto): Promise<{
         success: boolean;
         data: {
