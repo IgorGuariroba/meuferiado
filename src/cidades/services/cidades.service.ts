@@ -474,8 +474,10 @@ export class CidadesService {
       if (localExistente) {
         // Se o local foi excluído (soft delete), não atualizar nem restaurar
         // O usuário excluiu por um motivo, então não devemos restaurar automaticamente
+        // O deletedAt deve permanecer inalterado
         if (localExistente.deletedAt) {
           return null; // Retornar null para indicar que não deve ser salvo/retornado
+          // O local permanece com deletedAt inalterado no banco de dados
         }
 
         // Verificar se o local não tem cidade relacionada e tentar atualizar
