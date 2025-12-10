@@ -20,7 +20,6 @@ const listar_cidades_dto_1 = require("./dto/listar-cidades.dto");
 const buscar_locais_dto_1 = require("./dto/buscar-locais.dto");
 const buscar_locais_salvos_dto_1 = require("./dto/buscar-locais-salvos.dto");
 const criar_termo_busca_dto_1 = require("./dto/criar-termo-busca.dto");
-const tipos_locais_enum_1 = require("./dto/tipos-locais.enum");
 let CidadesController = class CidadesController {
     constructor(cidadesService) {
         this.cidadesService = cidadesService;
@@ -491,9 +490,9 @@ __decorate([
     (0, swagger_1.ApiQuery)({
         name: 'query',
         required: true,
-        enum: tipos_locais_enum_1.TiposLocais,
+        type: String,
         description: 'Termo de busca para o tipo de local',
-        example: tipos_locais_enum_1.TiposLocais.CHALE,
+        example: 'chalé',
     }),
     (0, swagger_1.ApiQuery)({
         name: 'city',

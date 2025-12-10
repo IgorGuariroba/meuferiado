@@ -12,17 +12,16 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.BuscarLocaisDto = void 0;
 const class_validator_1 = require("class-validator");
 const swagger_1 = require("@nestjs/swagger");
-const tipos_locais_enum_1 = require("./tipos-locais.enum");
 class BuscarLocaisDto {
 }
 exports.BuscarLocaisDto = BuscarLocaisDto;
 __decorate([
     (0, swagger_1.ApiProperty)({
         description: 'Termo de busca para o tipo de local',
-        enum: tipos_locais_enum_1.TiposLocais,
-        example: tipos_locais_enum_1.TiposLocais.CHALE,
+        type: String,
+        example: 'chalé',
     }),
-    (0, class_validator_1.IsEnum)(tipos_locais_enum_1.TiposLocais),
+    (0, class_validator_1.IsString)(),
     (0, class_validator_1.IsNotEmpty)(),
     __metadata("design:type", String)
 ], BuscarLocaisDto.prototype, "query", void 0);

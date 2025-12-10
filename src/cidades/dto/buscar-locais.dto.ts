@@ -1,14 +1,13 @@
-import { IsString, IsNotEmpty, IsEnum } from 'class-validator';
+import { IsString, IsNotEmpty } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
-import { TiposLocais } from './tipos-locais.enum';
 
 export class BuscarLocaisDto {
   @ApiProperty({
     description: 'Termo de busca para o tipo de local',
-    enum: TiposLocais,
-    example: TiposLocais.CHALE,
+    type: String,
+    example: 'chalé',
   })
-  @IsEnum(TiposLocais)
+  @IsString()
   @IsNotEmpty()
   query: string;
 
