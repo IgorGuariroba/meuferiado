@@ -202,6 +202,22 @@ export declare class CidadesService {
         };
         local?: undefined;
     }>;
+    restaurarLocaisSalvos(city: string, estado?: string, placeId?: string): Promise<{
+        restaurados: number;
+        local: {
+            nome: string;
+            place_id: string;
+        };
+        cidade?: undefined;
+    } | {
+        restaurados: number;
+        cidade: {
+            nome: string;
+            estado: string;
+            pais: string;
+        };
+        local?: undefined;
+    }>;
     gerarUrlFoto(photoReference: string, maxWidth?: number, maxHeight?: number): string;
     buscarLocaisExcluidos(city: string, estado?: string, limit?: number, skip?: number): Promise<{
         locais: {

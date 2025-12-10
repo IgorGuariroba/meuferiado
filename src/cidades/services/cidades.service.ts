@@ -887,8 +887,6 @@ export class CidadesService {
         };
       }
 
-      console.log(`[buscarLocaisSalvosPorCidade] Cidade encontrada: ${cidade.nome} (ID: ${cidade._id})`);
-
       // Buscar locais relacionados à cidade (apenas não deletados)
       const queryLocais: any = {
         cidade: cidade._id,
@@ -1171,6 +1169,77 @@ export class CidadesService {
       };
     } catch (error) {
       throw new Error(`Erro ao excluir locais: ${error.message}`);
+    }
+  }
+
+  /**
+   * Restaura locais excluídos no MongoDB (remove soft delete)
+   */
+  async restaurarLocaisSalvos(city: string, estado?: string, placeId?: string) {
+    try {
+      // Buscar cidade
+      const queryCidade: any = {
+        nome: { $regex: new RegExp(`^${city}$`, 'i') },
+      };
+      if (estado) {
+        queryCidade.estado = { $regex: new RegExp(`^${estado}$`, 'i') };
+      }
+
+      const cidade = await this.cidadeModel.findOne(queryCidade);
+      if (!cidade) {
+        throw new Error(`Cidade não encontrada: ${city}`);
+      }
+
+      // Se placeId foi fornecido, restaurar apenas esse local
+      if (placeId) {
+        const local = await this.localModel.findOneAndUpdate(
+          {
+            place_id: placeId,
+            cidade: cidade._id,
+            deletedAt: { $ne: null }, // Apenas locais deletados
+          },
+          {
+            $set: { deletedAt: null }, // Restaura o local (remove soft delete)
+          },
+          {
+            new: true, // Retorna o documento atualizado
+          }
+        );
+
+        if (!local) {
+          throw new Error(`Local com place_id ${placeId} não encontrado na cidade ${city} ou não foi excluído`);
+        }
+
+        return {
+          restaurados: 1,
+          local: {
+            nome: local.nome,
+            place_id: local.place_id,
+          },
+        };
+      }
+
+      // Restaurar todos os locais excluídos da cidade
+      const resultado = await this.localModel.updateMany(
+        {
+          cidade: cidade._id,
+          deletedAt: { $ne: null }, // Apenas locais deletados
+        },
+        {
+          $set: { deletedAt: null }, // Restaura os locais (remove soft delete)
+        }
+      );
+
+      return {
+        restaurados: resultado.modifiedCount || 0,
+        cidade: {
+          nome: cidade.nome,
+          estado: cidade.estado,
+          pais: cidade.pais,
+        },
+      };
+    } catch (error) {
+      throw new Error(`Erro ao restaurar locais: ${error.message}`);
     }
   }
 

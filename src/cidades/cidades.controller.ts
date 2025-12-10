@@ -747,6 +747,123 @@ export class CidadesController {
     }
   }
 
+  @Post('locais-salvos/restaurar')
+  @ApiOperation({
+    summary: 'Restaura locais excluídos (soft delete)',
+    description: 'Restaura locais que foram excluídos via soft delete. Pode restaurar todos os locais excluídos de uma cidade ou um local específico por place_id.'
+  })
+  @ApiQuery({
+    name: 'city',
+    required: true,
+    type: String,
+    description: 'Nome da cidade',
+    example: 'Mogi das Cruzes',
+  })
+  @ApiQuery({
+    name: 'estado',
+    required: false,
+    type: String,
+    description: 'Estado da cidade (opcional, ajuda a identificar a cidade corretamente)',
+    example: 'SP',
+  })
+  @ApiQuery({
+    name: 'place_id',
+    required: false,
+    type: String,
+    description: 'Place ID do local específico a ser restaurado (opcional). Se não fornecido, restaura todos os locais excluídos da cidade.',
+    example: 'ChIJ8_PWhVjmzZQRwVSFsm_xXiM',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Locais restaurados com sucesso',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'object',
+          properties: {
+            restaurados: { type: 'number', example: 2 },
+            cidade: {
+              type: 'object',
+              properties: {
+                nome: { type: 'string', example: 'Mogi das Cruzes' },
+                estado: { type: 'string', example: 'SP' },
+                pais: { type: 'string', example: 'BR' },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Local específico restaurado com sucesso (quando place_id é fornecido)',
+    schema: {
+      type: 'object',
+      properties: {
+        success: { type: 'boolean', example: true },
+        data: {
+          type: 'object',
+          properties: {
+            restaurados: { type: 'number', example: 1 },
+            local: {
+              type: 'object',
+              properties: {
+                nome: { type: 'string', example: 'Chalé Conforto' },
+                place_id: { type: 'string', example: 'ChIJ8_PWhVjmzZQRwVSFsm_xXiM' },
+              },
+            },
+          },
+        },
+      },
+    },
+  })
+  @ApiResponse({ status: 400, description: 'Parâmetros inválidos - city é obrigatório' })
+  @ApiResponse({ status: 404, description: 'Cidade ou local não encontrado' })
+  @ApiResponse({ status: 500, description: 'Erro interno do servidor' })
+  async restaurarLocaisSalvos(
+    @Query('city') city: string,
+    @Query('estado') estado?: string,
+    @Query('place_id') placeId?: string,
+  ) {
+    try {
+      if (!city) {
+        throw new HttpException(
+          {
+            success: false,
+            message: 'city é obrigatório',
+          },
+          HttpStatus.BAD_REQUEST,
+        );
+      }
+
+      const resultado = await this.cidadesService.restaurarLocaisSalvos(
+        city,
+        estado,
+        placeId,
+      );
+
+      return {
+        success: true,
+        data: resultado,
+      };
+    } catch (error) {
+      const statusCode = error.message.includes('não encontrado')
+        ? HttpStatus.NOT_FOUND
+        : HttpStatus.INTERNAL_SERVER_ERROR;
+
+      throw new HttpException(
+        {
+          success: false,
+          message: error.message || 'Erro ao restaurar locais',
+        },
+        statusCode,
+      );
+    }
+  }
+
   @Get('foto')
   @ApiOperation({
     summary: 'Gera URL para visualizar foto do Google Places',

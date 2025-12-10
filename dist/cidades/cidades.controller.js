@@ -245,6 +245,30 @@ let CidadesController = class CidadesController {
             }, statusCode);
         }
     }
+    async restaurarLocaisSalvos(city, estado, placeId) {
+        try {
+            if (!city) {
+                throw new common_1.HttpException({
+                    success: false,
+                    message: 'city é obrigatório',
+                }, common_1.HttpStatus.BAD_REQUEST);
+            }
+            const resultado = await this.cidadesService.restaurarLocaisSalvos(city, estado, placeId);
+            return {
+                success: true,
+                data: resultado,
+            };
+        }
+        catch (error) {
+            const statusCode = error.message.includes('não encontrado')
+                ? common_1.HttpStatus.NOT_FOUND
+                : common_1.HttpStatus.INTERNAL_SERVER_ERROR;
+            throw new common_1.HttpException({
+                success: false,
+                message: error.message || 'Erro ao restaurar locais',
+            }, statusCode);
+        }
+    }
     async gerarUrlFoto(photoReference, maxWidth, maxHeight) {
         try {
             if (!photoReference) {
@@ -799,6 +823,90 @@ __decorate([
     __metadata("design:paramtypes", [String, String, String]),
     __metadata("design:returntype", Promise)
 ], CidadesController.prototype, "excluirLocaisSalvos", null);
+__decorate([
+    (0, common_1.Post)('locais-salvos/restaurar'),
+    (0, swagger_1.ApiOperation)({
+        summary: 'Restaura locais excluídos (soft delete)',
+        description: 'Restaura locais que foram excluídos via soft delete. Pode restaurar todos os locais excluídos de uma cidade ou um local específico por place_id.'
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: 'city',
+        required: true,
+        type: String,
+        description: 'Nome da cidade',
+        example: 'Mogi das Cruzes',
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: 'estado',
+        required: false,
+        type: String,
+        description: 'Estado da cidade (opcional, ajuda a identificar a cidade corretamente)',
+        example: 'SP',
+    }),
+    (0, swagger_1.ApiQuery)({
+        name: 'place_id',
+        required: false,
+        type: String,
+        description: 'Place ID do local específico a ser restaurado (opcional). Se não fornecido, restaura todos os locais excluídos da cidade.',
+        example: 'ChIJ8_PWhVjmzZQRwVSFsm_xXiM',
+    }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'Locais restaurados com sucesso',
+        schema: {
+            type: 'object',
+            properties: {
+                success: { type: 'boolean', example: true },
+                data: {
+                    type: 'object',
+                    properties: {
+                        restaurados: { type: 'number', example: 2 },
+                        cidade: {
+                            type: 'object',
+                            properties: {
+                                nome: { type: 'string', example: 'Mogi das Cruzes' },
+                                estado: { type: 'string', example: 'SP' },
+                                pais: { type: 'string', example: 'BR' },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    }),
+    (0, swagger_1.ApiResponse)({
+        status: 200,
+        description: 'Local específico restaurado com sucesso (quando place_id é fornecido)',
+        schema: {
+            type: 'object',
+            properties: {
+                success: { type: 'boolean', example: true },
+                data: {
+                    type: 'object',
+                    properties: {
+                        restaurados: { type: 'number', example: 1 },
+                        local: {
+                            type: 'object',
+                            properties: {
+                                nome: { type: 'string', example: 'Chalé Conforto' },
+                                place_id: { type: 'string', example: 'ChIJ8_PWhVjmzZQRwVSFsm_xXiM' },
+                            },
+                        },
+                    },
+                },
+            },
+        },
+    }),
+    (0, swagger_1.ApiResponse)({ status: 400, description: 'Parâmetros inválidos - city é obrigatório' }),
+    (0, swagger_1.ApiResponse)({ status: 404, description: 'Cidade ou local não encontrado' }),
+    (0, swagger_1.ApiResponse)({ status: 500, description: 'Erro interno do servidor' }),
+    __param(0, (0, common_1.Query)('city')),
+    __param(1, (0, common_1.Query)('estado')),
+    __param(2, (0, common_1.Query)('place_id')),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [String, String, String]),
+    __metadata("design:returntype", Promise)
+], CidadesController.prototype, "restaurarLocaisSalvos", null);
 __decorate([
     (0, common_1.Get)('foto'),
     (0, swagger_1.ApiOperation)({

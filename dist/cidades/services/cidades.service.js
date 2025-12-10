@@ -630,7 +630,6 @@ let CidadesService = class CidadesService {
                     skip: skipFinal,
                 };
             }
-            console.log(`[buscarLocaisSalvosPorCidade] Cidade encontrada: ${cidade.nome} (ID: ${cidade._id})`);
             const queryLocais = {
                 cidade: cidade._id,
                 deletedAt: null,
@@ -861,6 +860,58 @@ let CidadesService = class CidadesService {
         }
         catch (error) {
             throw new Error(`Erro ao excluir locais: ${error.message}`);
+        }
+    }
+    async restaurarLocaisSalvos(city, estado, placeId) {
+        try {
+            const queryCidade = {
+                nome: { $regex: new RegExp(`^${city}$`, 'i') },
+            };
+            if (estado) {
+                queryCidade.estado = { $regex: new RegExp(`^${estado}$`, 'i') };
+            }
+            const cidade = await this.cidadeModel.findOne(queryCidade);
+            if (!cidade) {
+                throw new Error(`Cidade não encontrada: ${city}`);
+            }
+            if (placeId) {
+                const local = await this.localModel.findOneAndUpdate({
+                    place_id: placeId,
+                    cidade: cidade._id,
+                    deletedAt: { $ne: null },
+                }, {
+                    $set: { deletedAt: null },
+                }, {
+                    new: true,
+                });
+                if (!local) {
+                    throw new Error(`Local com place_id ${placeId} não encontrado na cidade ${city} ou não foi excluído`);
+                }
+                return {
+                    restaurados: 1,
+                    local: {
+                        nome: local.nome,
+                        place_id: local.place_id,
+                    },
+                };
+            }
+            const resultado = await this.localModel.updateMany({
+                cidade: cidade._id,
+                deletedAt: { $ne: null },
+            }, {
+                $set: { deletedAt: null },
+            });
+            return {
+                restaurados: resultado.modifiedCount || 0,
+                cidade: {
+                    nome: cidade.nome,
+                    estado: cidade.estado,
+                    pais: cidade.pais,
+                },
+            };
+        }
+        catch (error) {
+            throw new Error(`Erro ao restaurar locais: ${error.message}`);
         }
     }
     gerarUrlFoto(photoReference, maxWidth = 800, maxHeight = 600) {

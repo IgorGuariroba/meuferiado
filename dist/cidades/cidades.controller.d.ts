@@ -131,6 +131,25 @@ export declare class CidadesController {
             local?: undefined;
         };
     }>;
+    restaurarLocaisSalvos(city: string, estado?: string, placeId?: string): Promise<{
+        success: boolean;
+        data: {
+            restaurados: number;
+            local: {
+                nome: string;
+                place_id: string;
+            };
+            cidade?: undefined;
+        } | {
+            restaurados: number;
+            cidade: {
+                nome: string;
+                estado: string;
+                pais: string;
+            };
+            local?: undefined;
+        };
+    }>;
     gerarUrlFoto(photoReference: string, maxWidth?: string, maxHeight?: string): Promise<{
         success: boolean;
         data: {
