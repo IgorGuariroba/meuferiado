@@ -4,6 +4,8 @@ import { ConfigModule } from '@nestjs/config';
 import { CidadesModule } from './cidades/cidades.module';
 import { LocaisModule } from './locais/locais.module';
 import { CommandsModule } from './commands/commands.module';
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
 
 @Module({
   imports: [
@@ -17,6 +19,8 @@ import { CommandsModule } from './commands/commands.module';
     CidadesModule,
     LocaisModule,
     CommandsModule,
+    UsersModule,
+    AuthModule,
   ],
 })
 export class AppModule {}

@@ -23,10 +23,15 @@ API REST desenvolvida com NestJS para encontrar cidade atual e cidades vizinhas 
 npm install
 ```
 
-2. **Configure a chave API no arquivo `.env`:**
+2. **Configure as variáveis de ambiente no arquivo `.env`:**
 ```
 GOOGLE_MAPS_API_KEY=sua_chave_aqui
 MONGODB_URI=mongodb://admin:admin123@localhost:27017/cidades?authSource=admin
+
+# Configurações de Autenticação Google OAuth
+GOOGLE_CLIENT_ID=seu_client_id_google
+GOOGLE_CLIENT_SECRET=seu_client_secret_google
+GOOGLE_CALLBACK_URL=http://localhost:3000/auth/google/callback
 ```
 
 3. **Inicie o MongoDB (Docker):**
@@ -75,11 +80,24 @@ A API possui dois grupos principais de endpoints:
 - Atualizar local
 - Deletar local
 
+### 🔐 Autenticação
+- Autenticação com Google OAuth2
+- Obter informações do usuário autenticado
+- Logout
+
 ### Documentação Interativa
 
 Acesse http://localhost:3000/docs para ver a documentação completa do Swagger com todos os endpoints disponíveis e testá-los diretamente no navegador.
 
-## 🔑 Como Obter a Chave API
+**Autenticação no Swagger:**
+1. Clique no botão **"Authorize"** no topo da página do Swagger
+2. Selecione **"google-oauth"**
+3. Clique em **"Authorize"** para ser redirecionado ao Google
+4. Após autenticar, você poderá testar os endpoints protegidos
+
+## 🔑 Como Obter as Chaves da Google
+
+### Chave API do Google Maps (Geocoding API)
 
 1. Acesse [Google Cloud Console](https://console.cloud.google.com/)
 2. Crie um projeto ou selecione um existente
@@ -93,6 +111,23 @@ Acesse http://localhost:3000/docs para ver a documentação completa do Swagger 
 5. Adicione ao arquivo `.env`:
    ```
    GOOGLE_MAPS_API_KEY=sua_chave_aqui
+   ```
+
+### Credenciais OAuth2 do Google (Para Autenticação)
+
+1. Acesse [Google Cloud Console](https://console.cloud.google.com/)
+2. Vá em "APIs e Serviços" → "Credenciais"
+3. Clique em "Criar credenciais" → "ID do cliente OAuth"
+4. Configure o tipo de aplicativo como **"Aplicativo da Web"**
+5. Adicione os **URIs de redirecionamento autorizados**:
+   - `http://localhost:3000/auth/google/callback` (desenvolvimento)
+   - `https://seudominio.com/auth/google/callback` (produção)
+6. Copie o **ID do cliente** e o **Segredo do cliente**
+7. Adicione ao arquivo `.env`:
+   ```
+   GOOGLE_CLIENT_ID=seu_client_id_aqui
+   GOOGLE_CLIENT_SECRET=seu_client_secret_aqui
+   GOOGLE_CALLBACK_URL=http://localhost:3000/auth/google/callback
    ```
 
 ## 📊 Respostas da API

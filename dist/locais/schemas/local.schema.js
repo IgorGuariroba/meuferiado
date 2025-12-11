@@ -116,7 +116,7 @@ __decorate([
     __metadata("design:type", mongoose_2.Types.ObjectId)
 ], Local.prototype, "cidade", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ required: false, unique: true, sparse: true, trim: true }),
+    (0, mongoose_1.Prop)({ required: false, trim: true }),
     __metadata("design:type", String)
 ], Local.prototype, "place_id", void 0);
 __decorate([

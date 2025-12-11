@@ -89,7 +89,7 @@ export class Local {
   @Prop({ type: Types.ObjectId, ref: 'Cidade', required: false })
   cidade?: Types.ObjectId;
 
-  @Prop({ required: false, unique: true, sparse: true, trim: true })
+  @Prop({ required: false, trim: true })
   place_id?: string;
 
   // Fotos do Google Places

@@ -13,6 +13,8 @@ const config_1 = require("@nestjs/config");
 const cidades_module_1 = require("./cidades/cidades.module");
 const locais_module_1 = require("./locais/locais.module");
 const commands_module_1 = require("./commands/commands.module");
+const auth_module_1 = require("./auth/auth.module");
+const users_module_1 = require("./users/users.module");
 let AppModule = class AppModule {
 };
 exports.AppModule = AppModule;
@@ -27,6 +29,8 @@ exports.AppModule = AppModule = __decorate([
             cidades_module_1.CidadesModule,
             locais_module_1.LocaisModule,
             commands_module_1.CommandsModule,
+            users_module_1.UsersModule,
+            auth_module_1.AuthModule,
         ],
     })
 ], AppModule);
