@@ -10,6 +10,14 @@ exports.GoogleAuthGuard = void 0;
 const common_1 = require("@nestjs/common");
 const passport_1 = require("@nestjs/passport");
 let GoogleAuthGuard = class GoogleAuthGuard extends (0, passport_1.AuthGuard)('google') {
+    async canActivate(context) {
+        const request = context.switchToHttp().getRequest();
+        const redirectUri = request.query.redirect_uri;
+        if (redirectUri) {
+            request.query.state = Buffer.from(JSON.stringify({ redirect_uri: redirectUri })).toString('base64');
+        }
+        return super.canActivate(context);
+    }
 };
 exports.GoogleAuthGuard = GoogleAuthGuard;
 exports.GoogleAuthGuard = GoogleAuthGuard = __decorate([

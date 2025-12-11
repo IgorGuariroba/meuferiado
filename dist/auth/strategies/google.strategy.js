@@ -22,11 +22,12 @@ let GoogleStrategy = class GoogleStrategy extends (0, passport_1.PassportStrateg
             clientSecret: configService.get('GOOGLE_CLIENT_SECRET'),
             callbackURL: configService.get('GOOGLE_CALLBACK_URL') || 'http://localhost:3000/auth/google/callback',
             scope: ['openid', 'profile', 'email'],
+            passReqToCallback: true,
         });
         this.configService = configService;
         this.usersService = usersService;
     }
-    async validate(accessToken, refreshToken, profile, done) {
+    async validate(req, accessToken, refreshToken, profile, done) {
         try {
             const { id, name, emails, photos } = profile;
             const displayName = name?.givenName && name?.familyName

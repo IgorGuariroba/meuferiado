@@ -8,6 +8,6 @@ export declare class GoogleStrategy extends GoogleStrategy_base {
     private configService;
     private usersService;
     constructor(configService: ConfigService, usersService: UsersService);
-    validate(accessToken: string, refreshToken: string, profile: any, done: VerifyCallback): Promise<any>;
+    validate(req: any, accessToken: string, refreshToken: string, profile: any, done: VerifyCallback): Promise<any>;
 }
 export {};

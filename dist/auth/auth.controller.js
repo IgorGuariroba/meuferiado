@@ -28,14 +28,37 @@ let AuthController = class AuthController {
     }
     async googleAuthRedirect(req, res) {
         const token = await this.authService.googleLogin(req.user);
-        const redirectUri = req.query.redirect_uri || '';
         const state = req.query.state || '';
-        const frontendUrl = this.configService.get('FRONTEND_URL') || 'http://localhost:3000';
-        const isExplicitFrontendRequest = redirectUri && (redirectUri.includes(`${frontendUrl}/auth/callback`) ||
-            (redirectUri.includes(frontendUrl) && !redirectUri.includes('/docs') && !redirectUri.includes('oauth2-redirect')));
-        if (isExplicitFrontendRequest) {
-            const frontendRedirectUrl = `${frontendUrl}/auth/callback?token=${token.access_token}`;
-            return res.redirect(frontendRedirectUrl);
+        const frontendUrl = this.configService.get('FRONTEND_URL') || 'http://localhost:3001';
+        const referer = req.headers.referer || '';
+        const origin = req.headers.origin || '';
+        let redirectUri = '';
+        try {
+            if (state) {
+                const decodedState = JSON.parse(Buffer.from(state, 'base64').toString());
+                redirectUri = decodedState.redirect_uri || '';
+            }
+        }
+        catch (error) {
+        }
+        if (!redirectUri) {
+            if ((referer.includes('localhost:3001') && !referer.includes('/docs')) ||
+                (origin.includes('localhost:3001') && !origin.includes('/docs'))) {
+                redirectUri = `${frontendUrl}/auth/callback`;
+            }
+        }
+        const isSwaggerRequest = referer.includes('/docs') ||
+            referer.includes('oauth2-redirect') ||
+            referer.includes('localhost:3000/docs') ||
+            origin.includes('/docs') ||
+            (origin.includes('localhost:3000') && origin.includes('/docs'));
+        if (!isSwaggerRequest) {
+            let finalRedirectUri = redirectUri;
+            if (!finalRedirectUri || finalRedirectUri.includes('localhost:3000')) {
+                finalRedirectUri = `${frontendUrl}/auth/callback`;
+            }
+            finalRedirectUri = finalRedirectUri.replace('localhost:3000', 'localhost:3001');
+            return res.redirect(`${finalRedirectUri}?token=${token.access_token}`);
         }
         const redirectUrl = `/oauth2-redirect.html#access_token=${token.access_token}&token_type=Bearer&state=${encodeURIComponent(state)}`;
         return res.redirect(redirectUrl);
