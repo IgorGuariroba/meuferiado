@@ -38,51 +38,50 @@ export class AuthController {
     const origin = req.headers.origin || '';
 
     // Tentar decodificar o redirect_uri do state (se foi codificado pelo guard)
+    // O guard codifica o redirect_uri no state quando é uma requisição do frontend
     let redirectUri = '';
+    let isFrontendState = false;
     try {
       if (state) {
         const decodedState = JSON.parse(Buffer.from(state, 'base64').toString());
         redirectUri = decodedState.redirect_uri || '';
+        // Se conseguimos decodificar e há redirect_uri, é uma requisição do frontend
+        if (redirectUri) {
+          isFrontendState = true;
+        }
       }
     } catch (error) {
-      // State não é nosso formato customizado, continuar
+      // State não é nosso formato customizado, então provavelmente é Swagger
+      // (Swagger usa seu próprio state para proteção CSRF)
     }
 
-    // Se não tiver redirect_uri do state, verificar o Referer ou Origin header
-    if (!redirectUri) {
-      // Se o Referer ou Origin vierem do frontend (não do Swagger), assumir que é uma requisição do frontend
-      if (
-        (referer.includes('localhost:3001') && !referer.includes('/docs')) ||
-        (origin.includes('localhost:3001') && !origin.includes('/docs'))
-      ) {
-        redirectUri = `${frontendUrl}/auth/callback`;
-      }
+    // Se o state contém redirect_uri do frontend, é uma requisição do frontend
+    if (isFrontendState && redirectUri && redirectUri.includes('localhost:3001')) {
+      let finalRedirectUri = redirectUri;
+      // Garantir que nunca redirecionamos para localhost:3000
+      finalRedirectUri = finalRedirectUri.replace('localhost:3000', 'localhost:3001');
+      return res.redirect(`${finalRedirectUri}?token=${token.access_token}`);
     }
 
-    // Verificar se é uma requisição do Swagger (backend)
-    // Swagger sempre vem de localhost:3000/docs ou oauth2-redirect
-    const isSwaggerRequest =
+    // Verificar também pelos headers (fallback caso o state não funcione)
+    const isFrontendByHeaders =
+      (referer.includes('localhost:3001') && !referer.includes('/docs')) ||
+      (origin.includes('localhost:3001') && !origin.includes('/docs'));
+
+    // Se os headers indicam frontend E não é Swagger, redirecionar para frontend
+    const isSwaggerByHeaders =
       referer.includes('/docs') ||
       referer.includes('oauth2-redirect') ||
       referer.includes('localhost:3000/docs') ||
       origin.includes('/docs') ||
-      (origin.includes('localhost:3000') && origin.includes('/docs'));
+      (origin.includes('localhost:3000') && !origin.includes('localhost:3001'));
 
-    // Se NÃO for Swagger, assumir que é frontend
-    // Usar o redirectUri do state se disponível, senão usar o FRONTEND_URL do .env
-    if (!isSwaggerRequest) {
-      let finalRedirectUri = redirectUri;
-
-      // Se não tiver redirectUri do state, usar o FRONTEND_URL
-      if (!finalRedirectUri || finalRedirectUri.includes('localhost:3000')) {
-        finalRedirectUri = `${frontendUrl}/auth/callback`;
-      }
-
-      // Garantir que nunca redirecionamos para localhost:3000
-      finalRedirectUri = finalRedirectUri.replace('localhost:3000', 'localhost:3001');
-
+    if (isFrontendByHeaders && !isSwaggerByHeaders) {
+      const finalRedirectUri = `${frontendUrl}/auth/callback`;
       return res.redirect(`${finalRedirectUri}?token=${token.access_token}`);
     }
+
+    // Se chegou aqui, é Swagger - redirecionar para oauth2-redirect.html
 
     // Para Swagger (fluxo implicit), redirecionar para oauth2-redirect.html com token no hash
     // O formato do fluxo implicit é: #access_token=TOKEN&token_type=Bearer&state=STATE

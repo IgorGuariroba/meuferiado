@@ -33,31 +33,32 @@ let AuthController = class AuthController {
         const referer = req.headers.referer || '';
         const origin = req.headers.origin || '';
         let redirectUri = '';
+        let isFrontendState = false;
         try {
             if (state) {
                 const decodedState = JSON.parse(Buffer.from(state, 'base64').toString());
                 redirectUri = decodedState.redirect_uri || '';
+                if (redirectUri) {
+                    isFrontendState = true;
+                }
             }
         }
         catch (error) {
         }
-        if (!redirectUri) {
-            if ((referer.includes('localhost:3001') && !referer.includes('/docs')) ||
-                (origin.includes('localhost:3001') && !origin.includes('/docs'))) {
-                redirectUri = `${frontendUrl}/auth/callback`;
-            }
+        if (isFrontendState && redirectUri && redirectUri.includes('localhost:3001')) {
+            let finalRedirectUri = redirectUri;
+            finalRedirectUri = finalRedirectUri.replace('localhost:3000', 'localhost:3001');
+            return res.redirect(`${finalRedirectUri}?token=${token.access_token}`);
         }
-        const isSwaggerRequest = referer.includes('/docs') ||
+        const isFrontendByHeaders = (referer.includes('localhost:3001') && !referer.includes('/docs')) ||
+            (origin.includes('localhost:3001') && !origin.includes('/docs'));
+        const isSwaggerByHeaders = referer.includes('/docs') ||
             referer.includes('oauth2-redirect') ||
             referer.includes('localhost:3000/docs') ||
             origin.includes('/docs') ||
-            (origin.includes('localhost:3000') && origin.includes('/docs'));
-        if (!isSwaggerRequest) {
-            let finalRedirectUri = redirectUri;
-            if (!finalRedirectUri || finalRedirectUri.includes('localhost:3000')) {
-                finalRedirectUri = `${frontendUrl}/auth/callback`;
-            }
-            finalRedirectUri = finalRedirectUri.replace('localhost:3000', 'localhost:3001');
+            (origin.includes('localhost:3000') && !origin.includes('localhost:3001'));
+        if (isFrontendByHeaders && !isSwaggerByHeaders) {
+            const finalRedirectUri = `${frontendUrl}/auth/callback`;
             return res.redirect(`${finalRedirectUri}?token=${token.access_token}`);
         }
         const redirectUrl = `/oauth2-redirect.html#access_token=${token.access_token}&token_type=Bearer&state=${encodeURIComponent(state)}`;
